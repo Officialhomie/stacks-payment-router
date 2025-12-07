@@ -1,0 +1,39 @@
+---
+id: 0
+name: Devnet deployment
+network: devnet
+stacks-node: "http://localhost:20443"
+bitcoin-node: "http://devnet:devnet@localhost:18443"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: agent-registry
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 186960
+            path: agent-registry.clar
+            anchor-block-only: true
+            clarity-version: 1
+        - contract-publish:
+            contract-name: token-usdh
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 44780
+            path: token-usdh.clar
+            anchor-block-only: true
+            clarity-version: 1
+        - contract-publish:
+            contract-name: yield-vault
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 201690
+            path: yield-vault.clar
+            anchor-block-only: true
+            clarity-version: 1
+        - contract-publish:
+            contract-name: payment-router
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 138970
+            path: payment-router.clar
+            anchor-block-only: true
+            clarity-version: 1
+      epoch: "2.05"

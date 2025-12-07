@@ -1,0 +1,37 @@
+[project]
+name = "payment-router-contracts"
+clarinet_version = "3.11.0"
+
+[contracts.token-usdh]
+path = "token-usdh.clar"
+
+[contracts.agent-registry]
+path = "agent-registry.clar"
+
+[contracts.yield-vault]
+path = "yield-vault.clar"
+depends_on = ["token-usdh"]
+
+[contracts.payment-router]
+path = "payment-router.clar"
+depends_on = ["agent-registry", "yield-vault"]
+
+[networks]
+[networks.devnet]
+node_rpc_address = "http://localhost:3999"
+node_rpc_port = 3999
+deployment_fee_rate = 1000
+
+[networks.testnet]
+node_rpc_address = "https://api.testnet.hiro.so"
+node_rpc_port = 443
+deployment_fee_rate = 1000
+deployment_sender_address = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
+
+[networks.mainnet]
+node_rpc_address = "https://api.hiro.so"
+node_rpc_port = 443
+deployment_fee_rate = 1000
+
+[requirements]
+clarinet = ">=1.0.0"
