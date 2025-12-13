@@ -25,7 +25,7 @@ deployment_fee_rate = 1000
 [networks.testnet]
 node_rpc_address = "https://api.testnet.hiro.so"
 node_rpc_port = 443
-deployment_fee_rate = 1000
+deployment_fee_rate = 1
 deployment_sender_address = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
 
 [networks.mainnet]
