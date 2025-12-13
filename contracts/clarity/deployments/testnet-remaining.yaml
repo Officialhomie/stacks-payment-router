@@ -1,0 +1,26 @@
+---
+id: 0
+name: Testnet deployment - remaining contracts
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://localhost:18443"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: yield-vault
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 240890
+            path: yield-vault.clar
+            anchor-block-only: true
+            clarity-version: 1
+    - id: 1
+      transactions:
+        - contract-publish:
+            contract-name: payment-router
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 211770
+            path: payment-router.clar
+            anchor-block-only: true
+            clarity-version: 1

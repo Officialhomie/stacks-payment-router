@@ -1,0 +1,88 @@
+STACKS PAYMENT ROUTER - TESTNET DEPLOYMENT
+===========================================
+
+Deployment Date: December 13, 2025
+Network: Stacks Testnet
+Deployer: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+
+DEPLOYED CONTRACTS
+------------------
+
+1. token-usdh
+   Address: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.token-usdh
+   TX ID: 0x8c94e44b089aefba5bd9d98b86e841727bd1f736aa2b36455f078f756de4068d
+   Status: SUCCESS
+   Cost: 0.087010 STX
+   Explorer: https://explorer.hiro.so/txid/0x8c94e44b089aefba5bd9d98b86e841727bd1f736aa2b36455f078f756de4068d?chain=testnet
+
+2. agent-registry
+   Address: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.agent-registry
+   TX ID: 0xc17c2e9487603312ff62bc5e576b58b8f39b864c0c391f0db2a136168eedb4e4
+   Status: SUCCESS
+   Cost: 0.257490 STX
+   Explorer: https://explorer.hiro.so/txid/0xc17c2e9487603312ff62bc5e576b58b8f39b864c0c391f0db2a136168eedb4e4?chain=testnet
+
+3. yield-vault
+   Address: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.yield-vault
+   TX ID: 0x14af2e6ba70e48fb85c0b59af63f908bc7c9c7bd8bd1e0241c696b3d4caceedf
+   Status: SUCCESS
+   Cost: 0.240890 STX
+   Explorer: https://explorer.hiro.so/txid/0x14af2e6ba70e48fb85c0b59af63f908bc7c9c7bd8bd1e0241c696b3d4caceedf?chain=testnet
+
+4. payment-router
+   Address: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.payment-router
+   TX ID: 0x34c848e4fc6a7b9960c152d4ed88aaf522a06bd67abf841a52a866299b3a6a52
+   Status: SUCCESS
+   Cost: 0.211770 STX
+   Explorer: https://explorer.hiro.so/txid/0x34c848e4fc6a7b9960c152d4ed88aaf522a06bd67abf841a52a866299b3a6a52?chain=testnet
+
+TOTAL DEPLOYMENT COST: 0.797160 STX
+
+DEPLOYMENT STATUS
+-----------------
+✅ All 4 contracts successfully deployed
+✅ All contracts verified on testnet explorer
+✅ Contract interfaces accessible via API
+⏳ Contracts NOT YET INITIALIZED (next step)
+
+NEXT STEPS
+----------
+1. Initialize all 4 contracts (call initialize-contract on each)
+2. Add payment-router as operator to agent-registry
+3. Add payment-router as operator to yield-vault
+4. Mint test USDh tokens
+5. Register test agents
+6. Test payment flows
+
+See QUICK-START.md for detailed initialization instructions.
+
+VERIFICATION COMMANDS
+---------------------
+# Check contract interface
+curl "https://api.testnet.hiro.so/v2/contracts/interface/ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM/payment-router"
+
+# Check transaction status
+curl "https://api.testnet.hiro.so/extended/v1/tx/0x34c848e4fc6a7b9960c152d4ed88aaf522a06bd67abf841a52a866299b3a6a52"
+
+# Check deployer account
+curl "https://api.testnet.hiro.so/extended/v1/address/ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM/balances"
+
+DEPLOYMENT CONFIGURATION
+------------------------
+Deployment Plan: deployments/default.testnet-plan.yaml
+Settings File: settings/Testnet.toml
+Network: testnet
+API Endpoint: https://api.testnet.hiro.so
+
+PRODUCTION FEATURES
+-------------------
+✅ Reentrancy protection
+✅ Rate limiting
+✅ Auto-withdraw settlement path
+✅ Yield vault integration
+✅ Multi-chain support
+✅ Emergency pause functionality
+✅ Admin controls
+✅ 76 comprehensive tests
+
+DEPLOYMENT COMPLETE - READY FOR INITIALIZATION

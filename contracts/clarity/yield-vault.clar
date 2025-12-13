@@ -527,7 +527,7 @@
             })
 
             ;; Release reentrancy lock
-            (unwrap-panic (release-lock caller))
+            (unwrap! (release-lock caller) ERR-NOT-AUTHORIZED)
 
             (ok pending-amount)
           )
@@ -609,7 +609,7 @@
             )
 
             ;; Release reentrancy lock
-            (unwrap-panic (release-lock agent))
+            (unwrap! (release-lock agent) ERR-NOT-AUTHORIZED)
 
             (ok net-amount)
           )

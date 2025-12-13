@@ -1,20 +1,14 @@
 ---
 id: 0
-name: Devnet deployment
-network: devnet
-stacks-node: "http://localhost:20443"
-bitcoin-node: "http://devnet:devnet@localhost:18443"
+name: Testnet deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://localhost:18443"
 plan:
   batches:
     - id: 0
       transactions:
-        - contract-publish:
-            contract-name: agent-registry
-            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            cost: 257490
-            path: agent-registry.clar
-            anchor-block-only: true
-            clarity-version: 1
+        # Deploy token-usdh first (no dependencies)
         - contract-publish:
             contract-name: token-usdh
             expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
@@ -22,6 +16,19 @@ plan:
             path: token-usdh.clar
             anchor-block-only: true
             clarity-version: 1
+
+        # Deploy agent-registry (no dependencies)
+        - contract-publish:
+            contract-name: agent-registry
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 257490
+            path: agent-registry.clar
+            anchor-block-only: true
+            clarity-version: 1
+
+    - id: 1
+      transactions:
+        # Deploy yield-vault (depends on token-usdh)
         - contract-publish:
             contract-name: yield-vault
             expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
@@ -29,6 +36,10 @@ plan:
             path: yield-vault.clar
             anchor-block-only: true
             clarity-version: 1
+
+    - id: 2
+      transactions:
+        # Deploy payment-router (depends on agent-registry and yield-vault)
         - contract-publish:
             contract-name: payment-router
             expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM

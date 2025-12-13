@@ -129,6 +129,7 @@
   (or (is-owner) (is-authorized-operator))
 )
 
+
 ;; Validate intent-id format (must be non-empty and valid length)
 (define-private (is-valid-intent-id (intent-id (string-ascii 64)))
   (and
@@ -232,10 +233,11 @@
     (asserts! (> (len source-token) u0) ERR-INVALID-PAYMENT)
     
     ;; Verify agent exists and is active
-    (match (contract-call? .agent-registry get-agent agent)
-      agent-data
+    (let (
+      (optional-agent (contract-call? .agent-registry get-agent agent))
+      (agent-data (unwrap! optional-agent ERR-AGENT-NOT-FOUND))
+    )
         (asserts! (is-eq (get status agent-data) "active") ERR-AGENT-NOT-FOUND)
-      (asserts! false ERR-AGENT-NOT-FOUND)
     )
     
     ;; Create payment intent
@@ -436,14 +438,14 @@
           ) ERR-ALREADY-PROCESSED)
           
           ;; Record payment in agent registry
-          (try! (contract-call? .agent-registry record-payment 
+          (unwrap! (contract-call? .agent-registry record-payment 
             agent 
             net-amount 
-            (get source-chain payment)))
+            (get source-chain payment)) ERR-SETTLEMENT-FAILED)
           
           ;; Deposit to yield vault (simplified - always deposit, TODO: add auto-withdraw support)
           (asserts! (is-some (contract-call? .agent-registry get-agent agent)) ERR-AGENT-NOT-FOUND)
-                (try! (contract-call? .yield-vault deposit-for-agent agent net-amount))
+                (unwrap! (contract-call? .yield-vault deposit-for-agent agent net-amount) ERR-SETTLEMENT-FAILED)
           
           ;; Update payment intent
           (map-set payment-intents
@@ -483,7 +485,8 @@
           })
 
           ;; Release reentrancy lock
-          (try! (release-lock intent-id))
+          ;; release lock (should not fail, but avoid panic)
+          (unwrap! (release-lock intent-id) ERR-SETTLEMENT-FAILED)
           
           (ok {
             intent-id: intent-id,
@@ -563,23 +566,24 @@
           ) ERR-ALREADY-PROCESSED)
 
           ;; Record payment in agent registry
-          (unwrap-panic (contract-call? .agent-registry record-payment
+          (unwrap! (contract-call? .agent-registry record-payment
             agent
             net-amount
-            (get source-chain payment)))
+            (get source-chain payment)) ERR-SETTLEMENT-FAILED)
 
           ;; Verify agent exists and has auto-withdraw enabled
-          (match (contract-call? .agent-registry get-agent agent)
-            agent-data
+          (let (
+            (optional-agent (contract-call? .agent-registry get-agent agent))
+            (agent-data (unwrap! optional-agent ERR-AGENT-NOT-FOUND))
+          )
               (asserts! (get auto-withdraw agent-data) ERR-NOT-AUTHORIZED)
-            ERR-AGENT-NOT-FOUND
           )
 
           ;; Deposit to vault first
-          (try! (contract-call? .yield-vault deposit-for-agent agent net-amount))
+          (unwrap! (contract-call? .yield-vault deposit-for-agent agent net-amount) ERR-SETTLEMENT-FAILED)
 
           ;; Then immediately withdraw (instant withdrawal with fee)
-          (try! (contract-call? .yield-vault instant-withdraw agent net-amount))
+          (unwrap! (contract-call? .yield-vault instant-withdraw agent net-amount) ERR-SETTLEMENT-FAILED)
 
           ;; Update payment intent
           (map-set payment-intents
@@ -620,7 +624,7 @@
           })
 
           ;; Release reentrancy lock
-          (unwrap-panic (release-lock intent-id))
+          (unwrap! (release-lock intent-id) ERR-SETTLEMENT-FAILED)
 
           (ok {
             intent-id: intent-id,

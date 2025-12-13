@@ -1,0 +1,20 @@
+#V2
+(contract-call? .token-usdh initialize-contract)\n;; Expected: (ok true)
+(contract-call? .agent-registry initialize-contract)\n;; Expected: (ok true)
+(contract-call? .yield-vault initialize-contract)\n;; Expected: (ok true)\n\n(contract-call? .payment-router initialize-contract)\n;; Expected: (ok true)
+(contract-call? .yield-vault initialize-contract)\n;; Expected: (ok true)
+(contract-call? .payment-router initialize-contract)\n;; Expected: (ok true)
+(contract-call? .agent-registry add-operator .payment-router "router")\n;; Expected: (ok true)
+(contract-call? .yield-vault add-operator .payment-router)\n;; Expected: (ok true)
+(contract-call? .token-usdh mint u10000000000000 .payment-router)\n;; Expected: (ok true)
+(contract-call? .token-usdh mint u1000000000000 tx-sender)\n;; Expected: (ok true)
+(contract-call? .agent-registry register-agent\n  "test-agent-001"\n  (list "ethereum" "arbitrum")\n  u1000000       ;; min 1 USDh\n  u5000000000    ;; max 5000 USDh\n  false          ;; auto-withdraw disabled\n  "usdh"\n  none)\n;; Expected: (ok {agent-id: "test-agent-001", ...})
+(contract-call? .agent-registry get-agent tx-sender)\n;; Expected: (some {agent-id: "test-agent-001", ...})
+(contract-call? .agent-registry get-protocol-stats)\n;; Expected: {total-agents: u1, ...}
+(contract-call? .payment-router get-protocol-stats)\n;; Expected: {total-payments: u0, ...}
+(contract-call? .yield-vault get-vault-stats)
+(contract-call? .payment-router create-payment-intent\n  "intent-001"\n  tx-sender\n  "ethereum"\n  "eth"\n  u2000000\n  u2000000\n  u"0xtest123"\n  none)\n;; Expected: (ok {intent-id: "intent-001", ...})
+(contract-call? .payment-router get-payment-intent "intent-001")\n;; Expected: (some {intent-id: "intent-001", status: "pending", ...})
+(contract-call? .payment-router mark-payment-detected\n  "intent-001"\n  "0xhash123")\n;; Expected: (ok true)
+(contract-call? .payment-router start-route-execution\n  "intent-001"\n  "simple"\n  u2)\n;; Expected: (ok true)
+(contract-call? .token-usdh initialize-contract)\n;; Wait for result, should see: (ok true)

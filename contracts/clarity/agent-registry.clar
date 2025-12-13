@@ -821,6 +821,83 @@
   )
 )
 
+;; Configure rate limits for specific agent (admin only)
+(define-public (set-agent-rate-limits
+  (agent principal)
+  (max-per-hour uint)
+  (max-per-day uint)
+  (max-volume-per-day uint))
+  (begin
+    (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
+    (asserts! (> max-per-hour u0) (err ERR-INVALID-AMOUNT))
+    (asserts! (> max-per-day u0) (err ERR-INVALID-AMOUNT))
+    (asserts! (>= max-per-day max-per-hour) (err ERR-INVALID-AMOUNT)) ;; Daily >= hourly
+    (asserts! (> max-volume-per-day u0) (err ERR-INVALID-AMOUNT))
+
+    ;; Verify agent exists
+    (asserts! (is-some (map-get? agents { stacks-address: agent })) (err ERR-AGENT-NOT-FOUND))
+
+    ;; Update limits
+    (map-set agent-daily-limits
+      { agent: agent }
+      {
+        max-payments-per-hour: max-per-hour,
+        max-payments-per-day: max-per-day,
+        max-volume-per-day: max-volume-per-day
+      }
+    )
+
+    (print {
+      event: "agent-rate-limits-updated",
+      agent: agent,
+      max-per-hour: max-per-hour,
+      max-per-day: max-per-day,
+      max-volume-per-day: max-volume-per-day,
+      updated-at: block-height
+    })
+
+    (ok true)
+  )
+)
+
+;; Reset rate limit counters for an agent (emergency admin function)
+(define-public (reset-agent-rate-counters (agent principal))
+  (begin
+    (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
+    (asserts! (is-some (map-get? agents { stacks-address: agent })) (err ERR-AGENT-NOT-FOUND))
+
+    (map-set agent-rate-limits
+      { agent: agent }
+      {
+        payments-last-hour: u0,
+        last-hour-reset: block-height,
+        payments-last-day: u0,
+        last-day-reset: block-height
+      }
+    )
+
+    (print {
+      event: "agent-rate-counters-reset",
+      agent: agent,
+      reset-at: block-height
+    })
+
+    (ok true)
+  )
+)
+
+;; Get agent rate limit configuration (read-only)
+(define-read-only (get-agent-rate-limit-config (agent principal))
+  (match (map-get? agent-daily-limits { agent: agent })
+    limits (ok limits)
+    (ok {
+      max-payments-per-hour: u100,
+      max-payments-per-day: u1000,
+      max-volume-per-day: u10000000000000
+    })
+  )
+)
+
 ;; ============================================
 ;; INITIALIZATION FUNCTIONS
 ;; ============================================
