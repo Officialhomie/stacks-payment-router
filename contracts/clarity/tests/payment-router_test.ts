@@ -24,7 +24,7 @@ Clarinet.test({
       Tx.contractCall('payment-router', 'initialize-contract', [], deployer.address),
     ]);
 
-    block2.receipts[0].result.expectErr().expectUint(3008); // ERR-CONTRACT-NOT-INITIALIZED
+    block2.receipts[0].result.expectErr().expectUint(3003); // ERR-ALREADY-PROCESSED
   },
 });
 
