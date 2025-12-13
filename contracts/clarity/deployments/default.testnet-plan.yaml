@@ -1,48 +1,36 @@
 ---
 id: 0
-name: Testnet deployment
+name: Testnet deployment - All contracts in one batch
 network: testnet
 stacks-node: "https://api.testnet.hiro.so"
-bitcoin-node: "http://localhost:18443"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
 plan:
   batches:
+    # IMPORTANT: All contracts MUST be in the same batch for static references to work
+    # Order matters: dependencies must come before contracts that reference them
+    # token-usdh already exists, so we deploy: agent-registry -> yield-vault -> payment-router
     - id: 0
       transactions:
-        # Deploy token-usdh first (no dependencies)
-        - contract-publish:
-            contract-name: token-usdh
-            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            cost: 87010
-            path: token-usdh.clar
-            anchor-block-only: true
-            clarity-version: 1
-
-        # Deploy agent-registry (no dependencies)
+        # 1. Deploy agent-registry first (no dependencies on other contracts in this batch)
         - contract-publish:
             contract-name: agent-registry
-            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            expected-sender: ST2N6HZJPPQ8VGJZGPPP8754CFNGWKBHVAZ85QB6K
             cost: 257490
             path: agent-registry.clar
             anchor-block-only: true
             clarity-version: 1
-
-    - id: 1
-      transactions:
-        # Deploy yield-vault (depends on token-usdh)
+        # 2. Deploy yield-vault (depends on token-usdh which already exists)
         - contract-publish:
             contract-name: yield-vault
-            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            expected-sender: ST2N6HZJPPQ8VGJZGPPP8754CFNGWKBHVAZ85QB6K
             cost: 240890
             path: yield-vault.clar
             anchor-block-only: true
             clarity-version: 1
-
-    - id: 2
-      transactions:
-        # Deploy payment-router (depends on agent-registry and yield-vault)
+        # 3. Deploy payment-router last (depends on agent-registry and yield-vault)
         - contract-publish:
             contract-name: payment-router
-            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            expected-sender: ST2N6HZJPPQ8VGJZGPPP8754CFNGWKBHVAZ85QB6K
             cost: 211770
             path: payment-router.clar
             anchor-block-only: true
