@@ -1,0 +1,25 @@
+{
+  "name": "@services/listeners",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --watch src --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@listeners/shared": "workspace:*",
+    "@listeners/ethereum": "workspace:*",
+    "@listeners/arbitrum": "workspace:*",
+    "@listeners/stacks": "workspace:*",
+    "@shared/types": "workspace:*",
+    "@shared/constants": "workspace:*",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "ts-node": "^10.9.2"
+  }
+}
+

@@ -1,0 +1,28 @@
+{
+  "name": "@services/router",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "nodemon --watch src --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@shared/types": "workspace:*",
+    "@shared/utils": "workspace:*",
+    "@shared/constants": "workspace:*",
+    "axios": "^1.6.2",
+    "ethers": "^6.9.0",
+    "redis": "^4.6.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "nodemon": "^3.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.2"
+  }
+}
+
