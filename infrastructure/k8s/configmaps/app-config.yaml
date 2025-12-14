@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-router-config
+data:
+  API_PORT: "3000"
+  LISTENER_PORT: "3001"
+  ROUTER_PORT: "3002"
+  SETTLEMENT_PORT: "3003"
+  EXECUTION_PORT: "3004"
+  ENABLE_YIELD_VAULT: "true"
+  ENABLE_AUTO_WITHDRAW: "false"
+  ENABLE_MEV_PROTECTION: "true"
+  LOG_LEVEL: "info"
+

@@ -1,0 +1,44 @@
+{
+  "dashboard": {
+    "title": "Payment Router Dashboard",
+    "panels": [
+      {
+        "title": "API Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])"
+          }
+        ]
+      },
+      {
+        "title": "Payment Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "payment_success_rate"
+          }
+        ]
+      },
+      {
+        "title": "Active Agents",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "active_agents_count"
+          }
+        ]
+      },
+      {
+        "title": "Total Volume USD",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "total_volume_usd"
+          }
+        ]
+      }
+    ]
+  }
+}
+
