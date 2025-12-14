@@ -247,8 +247,8 @@
       (match (map-get? agent-daily-limits { agent: agent })
         limits
           (let (
-            (hourly-reset-due (>= (- block-height (get last-hour-reset rate-data)) u6))
-            (daily-reset-due (>= (- block-height (get last-day-reset rate-data)) u144))
+            (hourly-reset-due (>= (- stacks-block-height (get last-hour-reset rate-data)) u6))
+            (daily-reset-due (>= (- stacks-block-height (get last-day-reset rate-data)) u144))
             (current-hourly (if hourly-reset-due u0 (get payments-last-hour rate-data)))
             (current-daily (if daily-reset-due u0 (get payments-last-day rate-data)))
           )
@@ -362,7 +362,7 @@
       {
         agent-id: agent-id,
         agent-index: new-index,
-        created-at: block-height,
+        created-at: stacks-block-height,
         enabled-chains: chains,
         total-volume: u0,
         total-payments: u0,
@@ -389,9 +389,9 @@
       { agent: caller }
       {
         payments-last-hour: u0,
-        last-hour-reset: block-height,
+        last-hour-reset: stacks-block-height,
         payments-last-day: u0,
-        last-day-reset: block-height
+        last-day-reset: stacks-block-height
       }
     )
     
@@ -415,7 +415,7 @@
       agent-index: new-index,
       stacks-address: caller,
       enabled-chains: chains,
-      created-at: block-height
+      created-at: stacks-block-height
     })
 
     (ok {
@@ -447,10 +447,10 @@
     ;; Set or update payment address
     (map-set agent-payment-addresses
       { agent: caller, chain: chain }
-      { 
+      {
         address: address,
         is-verified: false,
-        added-at: block-height,
+        added-at: stacks-block-height,
         last-used-at: u0
       }
     )
@@ -475,7 +475,7 @@
       {
         address: (get address entry),
         is-verified: false,
-        added-at: block-height,
+        added-at: stacks-block-height,
         last-used-at: u0
       }
     )
@@ -610,8 +610,8 @@
             (match (map-get? agent-rate-limits { agent: agent })
               rate-limit-data
                 (let (
-                  (hourly-reset-due (>= (- block-height (get last-hour-reset rate-limit-data)) u6))
-                  (daily-reset-due (>= (- block-height (get last-day-reset rate-limit-data)) u144))
+                  (hourly-reset-due (>= (- stacks-block-height (get last-hour-reset rate-limit-data)) u6))
+                  (daily-reset-due (>= (- stacks-block-height (get last-day-reset rate-limit-data)) u144))
                   (current-hourly (if hourly-reset-due u0 (get payments-last-hour rate-limit-data)))
                   (current-daily (if daily-reset-due u0 (get payments-last-day rate-limit-data)))
                 )
@@ -619,9 +619,9 @@
                     { agent: agent }
                     {
                       payments-last-hour: (+ current-hourly u1),
-                      last-hour-reset: (if hourly-reset-due block-height (get last-hour-reset rate-limit-data)),
+                      last-hour-reset: (if hourly-reset-due stacks-block-height (get last-hour-reset rate-limit-data)),
                       payments-last-day: (+ current-daily u1),
-                      last-day-reset: (if daily-reset-due block-height (get last-day-reset rate-limit-data))
+                      last-day-reset: (if daily-reset-due stacks-block-height (get last-day-reset rate-limit-data))
                     }
                   )
                 )
@@ -630,9 +630,9 @@
                 { agent: agent }
                 {
                   payments-last-hour: u1,
-                  last-hour-reset: block-height,
+                  last-hour-reset: stacks-block-height,
                   payments-last-day: u1,
-                  last-day-reset: block-height
+                  last-day-reset: stacks-block-height
                 }
               )
             )
@@ -645,7 +645,7 @@
             (merge agent-data {
               total-volume: (+ (get total-volume agent-data) amount),
               total-payments: (+ (get total-payments agent-data) u1),
-              last-payment-at: block-height
+              last-payment-at: stacks-block-height
             })
           )
           
@@ -655,7 +655,7 @@
               addr-data
                 (map-set agent-payment-addresses
                   { agent: agent, chain: chain }
-                  (merge addr-data { last-used-at: block-height })
+                  (merge addr-data { last-used-at: stacks-block-height })
                 )
               true
             )
@@ -674,7 +674,7 @@
             chain: chain,
             new-total-volume: (+ (get total-volume agent-data) amount),
             new-total-payments: (+ (get total-payments agent-data) u1),
-            recorded-at: block-height
+            recorded-at: stacks-block-height
           })
 
           (ok {
@@ -717,7 +717,7 @@
     (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
     (map-set authorized-operators
       { operator: operator }
-      { enabled: true, role: role, added-at: block-height }
+      { enabled: true, role: role, added-at: stacks-block-height }
     )
     (ok true)
   )
@@ -744,7 +744,7 @@
             { stacks-address: agent }
             (merge agent-data {
               status: STATUS-SUSPENDED,
-              suspended-at: (some block-height),
+              suspended-at: (some stacks-block-height),
               suspension-reason: (some reason)
             })
           )
@@ -784,7 +784,7 @@
     (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
     (asserts! (<= new-fee-bps u1000) (err ERR-INVALID-AMOUNT)) ;; Max 10% (1000 bps)
     (var-set protocol-fee-basis-points new-fee-bps)
-    (print { event: "protocol-fee-updated", new-fee-bps: new-fee-bps, updated-at: block-height })
+    (print { event: "protocol-fee-updated", new-fee-bps: new-fee-bps, updated-at: stacks-block-height })
     (ok true)
   )
 )
@@ -796,7 +796,7 @@
     (asserts! (> new-minimum u0) (err ERR-INVALID-AMOUNT))
     (asserts! (< new-minimum (var-get maximum-payment-amount)) (err ERR-INVALID-AMOUNT))
     (var-set minimum-payment-amount new-minimum)
-    (print { event: "minimum-payment-updated", new-minimum: new-minimum, updated-at: block-height })
+    (print { event: "minimum-payment-updated", new-minimum: new-minimum, updated-at: stacks-block-height })
     (ok true)
   )
 )
@@ -807,7 +807,7 @@
     (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
     (asserts! (> new-maximum (var-get minimum-payment-amount)) (err ERR-INVALID-AMOUNT))
     (var-set maximum-payment-amount new-maximum)
-    (print { event: "maximum-payment-updated", new-maximum: new-maximum, updated-at: block-height })
+    (print { event: "maximum-payment-updated", new-maximum: new-maximum, updated-at: stacks-block-height })
     (ok true)
   )
 )
@@ -853,7 +853,7 @@
       max-per-hour: max-per-hour,
       max-per-day: max-per-day,
       max-volume-per-day: max-volume-per-day,
-      updated-at: block-height
+      updated-at: stacks-block-height
     })
 
     (ok true)
@@ -870,16 +870,16 @@
       { agent: agent }
       {
         payments-last-hour: u0,
-        last-hour-reset: block-height,
+        last-hour-reset: stacks-block-height,
         payments-last-day: u0,
-        last-day-reset: block-height
+        last-day-reset: stacks-block-height
       }
     )
 
     (print {
       event: "agent-rate-counters-reset",
       agent: agent,
-      reset-at: block-height
+      reset-at: stacks-block-height
     })
 
     (ok true)
