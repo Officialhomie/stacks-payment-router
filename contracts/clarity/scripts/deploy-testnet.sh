@@ -18,7 +18,7 @@ echo ""
 
 # Configuration
 DEPLOYMENT_PLAN="deployments/default.testnet-plan.yaml"
-EXPECTED_SENDER="ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
+# EXPECTED_SENDER will be derived from mnemonic in settings/Testnet.toml
 
 # Step 1: Pre-deployment checks
 echo "📝 Step 1: Pre-deployment checks..."
