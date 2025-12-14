@@ -1,0 +1,33 @@
+{
+  "name": "stacks-payment-router",
+  "version": "0.1.0",
+  "description": "Cross-chain AI agent payment router",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "dev": "pnpm -r dev",
+    "clean": "pnpm -r clean"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "dependencies": {
+    "@stacks/common": "^7.0.2",
+    "@stacks/network": "^7.2.0",
+    "@stacks/transactions": "^7.3.0",
+    "dotenv": "^16.3.1",
+    "ethers": "5.7.2"
+  }
+}
