@@ -6,7 +6,7 @@ set -e
 echo "=== Initializing Contracts on Testnet ==="
 echo ""
 
-DEPLOYER="ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
+# DEPLOYER address will be derived from mnemonic in settings/Testnet.toml
 
 echo "Step 1: Initialize token-usdh"
 clarinet run --allow-wallets scripts/init-token-usdh.ts
