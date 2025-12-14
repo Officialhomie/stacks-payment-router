@@ -18,7 +18,7 @@ plan:
             cost: 257490
             path: agent-registry.clar
             anchor-block-only: true
-            clarity-version: 1
+            clarity-version: 3
         # 2. Deploy yield-vault (depends on token-usdh which already exists)
         - contract-publish:
             contract-name: yield-vault
@@ -26,7 +26,7 @@ plan:
             cost: 240890
             path: yield-vault.clar
             anchor-block-only: true
-            clarity-version: 1
+            clarity-version: 3
         # 3. Deploy payment-router last (depends on agent-registry and yield-vault)
         - contract-publish:
             contract-name: payment-router
@@ -34,5 +34,5 @@ plan:
             cost: 211770
             path: payment-router.clar
             anchor-block-only: true
-            clarity-version: 1
-      epoch: "2.05"
+            clarity-version: 3
+      epoch: "3.0"
