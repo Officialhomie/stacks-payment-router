@@ -24,4 +24,5 @@ contracts/clarity/settings/Devnet.toml
 # Documentation files
 docs/
 *.md
+!README.md
 !contracts/clarity/README.md
