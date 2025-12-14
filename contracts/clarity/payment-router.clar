@@ -24,7 +24,7 @@
 (define-constant STATUS-FAILED "failed")
 (define-constant STATUS-EXPIRED "expired")
 
-;; Default expiry (144 blocks ~= 24 hours)
+;; Default expiry (144 blocks ~= 24 hours on Stacks blockchain)
 (define-constant DEFAULT-EXPIRY-BLOCKS u144)
 
 ;; Error codes for contract initialization
@@ -198,7 +198,7 @@
 
 (define-read-only (is-payment-expired (intent-id (string-ascii 64)))
   (match (map-get? payment-intents { intent-id: intent-id })
-    payment (> block-height (get expires-at payment))
+    payment (> stacks-block-height (get expires-at payment))
     true
   )
 )
@@ -220,7 +220,7 @@
   
   (let (
     (new-index (+ (var-get payment-counter) u1))
-    (expires-at (+ block-height (default-to DEFAULT-EXPIRY-BLOCKS expiry-blocks)))
+    (expires-at (+ stacks-block-height (default-to DEFAULT-EXPIRY-BLOCKS expiry-blocks)))
   )
     ;; Validations
     (asserts! (not (var-get is-paused)) ERR-NOT-AUTHORIZED)
@@ -252,7 +252,7 @@
         expected-usdh: expected-usdh,
         payment-address: payment-address,
         status: STATUS-PENDING,
-        created-at: block-height,
+        created-at: stacks-block-height,
         expires-at: expires-at,
         detected-at: none,
         settled-at: none,
@@ -304,13 +304,13 @@
       payment
         (begin
           (asserts! (is-eq (get status payment) STATUS-PENDING) ERR-ALREADY-PROCESSED)
-          (asserts! (<= block-height (get expires-at payment)) ERR-EXPIRED)
-          
+          (asserts! (<= stacks-block-height (get expires-at payment)) ERR-EXPIRED)
+
           (map-set payment-intents
             { intent-id: intent-id }
             (merge payment {
               status: STATUS-DETECTED,
-              detected-at: (some block-height),
+              detected-at: (some stacks-block-height),
               source-tx-hash: (some source-tx-hash)
             })
           )
@@ -320,7 +320,7 @@
             event: "payment-detected",
             intent-id: intent-id,
             source-tx-hash: source-tx-hash,
-            detected-at: block-height
+            detected-at: stacks-block-height
           })
 
           (ok true)
@@ -358,7 +358,7 @@
               steps-completed: u0,
               total-steps: total-steps,
               gas-spent-usd: u0,
-              started-at: block-height,
+              started-at: stacks-block-height,
               completed-at: none
             }
           )
@@ -452,19 +452,19 @@
             { intent-id: intent-id }
             (merge payment {
               status: STATUS-SETTLED,
-              settled-at: (some block-height),
+              settled-at: (some stacks-block-height),
               settlement-tx-hash: (some settlement-tx-hash),
               fees-paid: fees,
               net-amount: net-amount
             })
           )
-          
+
           ;; Update route execution
           (match (map-get? route-executions { intent-id: intent-id })
             execution
               (map-set route-executions
                 { intent-id: intent-id }
-                (merge execution { completed-at: (some block-height) })
+                (merge execution { completed-at: (some stacks-block-height) })
               )
             true
           )
@@ -481,7 +481,7 @@
             net-amount: net-amount,
             fees-paid: fees,
             settlement-tx-hash: settlement-tx-hash,
-            settled-at: block-height
+            settled-at: stacks-block-height
           })
 
           ;; Release reentrancy lock
@@ -526,7 +526,7 @@
   (match (map-get? payment-intents { intent-id: intent-id })
     payment
       (begin
-        (asserts! (> block-height (get expires-at payment)) ERR-NOT-AUTHORIZED)
+        (asserts! (> stacks-block-height (get expires-at payment)) ERR-NOT-AUTHORIZED)
         (asserts! (is-eq (get status payment) STATUS-PENDING) ERR-ALREADY-PROCESSED)
         
         (map-set payment-intents
@@ -590,7 +590,7 @@
             { intent-id: intent-id }
             (merge payment {
               status: STATUS-SETTLED,
-              settled-at: (some block-height),
+              settled-at: (some stacks-block-height),
               settlement-tx-hash: (some settlement-tx-hash),
               fees-paid: fees,
               net-amount: net-amount
@@ -602,7 +602,7 @@
             execution
               (map-set route-executions
                 { intent-id: intent-id }
-                (merge execution { completed-at: (some block-height) })
+                (merge execution { completed-at: (some stacks-block-height) })
               )
             true
           )
@@ -619,7 +619,7 @@
             net-amount: net-amount,
             fees-paid: fees,
             settlement-tx-hash: settlement-tx-hash,
-            settled-at: block-height,
+            settled-at: stacks-block-height,
             withdrawn: true
           })
 
@@ -646,7 +646,7 @@
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (map-set authorized-operators
       { operator: operator }
-      { enabled: true, role: role, added-at: block-height }
+      { enabled: true, role: role, added-at: stacks-block-height }
     )
     (ok true)
   )
@@ -665,7 +665,7 @@
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (asserts! (<= new-fee-bps u500) ERR-INVALID-AMOUNT) ;; Max 5% (500 bps)
     (var-set settlement-fee-bps new-fee-bps)
-    (print { event: "settlement-fee-updated", new-fee-bps: new-fee-bps, updated-at: block-height })
+    (print { event: "settlement-fee-updated", new-fee-bps: new-fee-bps, updated-at: stacks-block-height })
     (ok true)
   )
 )
