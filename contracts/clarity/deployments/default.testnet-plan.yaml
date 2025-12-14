@@ -35,4 +35,4 @@ plan:
             path: payment-router.clar
             anchor-block-only: true
             clarity-version: 3
-      epoch: "3.0"
+      epoch: "3.3"
