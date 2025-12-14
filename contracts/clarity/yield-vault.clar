@@ -159,7 +159,7 @@
           total-yield-distributed: u0,
           total-protocol-fees: u0,
           total-agents: u0,
-          last-yield-distribution-block: block-height
+          last-yield-distribution-block: stacks-block-height
         }
       )
       true
@@ -174,7 +174,7 @@
       (let (
         (principal-amount (get principal-amount balance-data))
         (last-claim-block (get last-yield-claim-block balance-data))
-        (blocks-elapsed (- block-height last-claim-block))
+        (blocks-elapsed (- stacks-block-height last-claim-block))
         (apy (var-get yield-apy-basis-points))
       )
         (if (is-eq principal-amount u0)
@@ -285,7 +285,7 @@
     ;; Note: Caller must have approved this contract to spend their USDh
     ;; Use contract name directly since it's a dependency
     (try! (contract-call? .token-usdh transfer amount caller (as-contract tx-sender) none))
-    
+
     ;; Update agent balance
     (match (map-get? agent-balances { agent: caller })
       existing-balance
@@ -297,7 +297,7 @@
             {
               principal-amount: (+ (get principal-amount existing-balance) amount),
               deposited-at-block: (get deposited-at-block existing-balance),
-              last-yield-claim-block: block-height,
+              last-yield-claim-block: stacks-block-height,
               total-yield-earned: (+ (get total-yield-earned existing-balance) current-yield),
               pending-withdrawal-amount: (get pending-withdrawal-amount existing-balance),
               withdrawal-unlock-block: (get withdrawal-unlock-block existing-balance),
@@ -312,8 +312,8 @@
           { agent: caller }
           {
             principal-amount: amount,
-            deposited-at-block: block-height,
-            last-yield-claim-block: block-height,
+            deposited-at-block: stacks-block-height,
+            last-yield-claim-block: stacks-block-height,
             total-yield-earned: u0,
             pending-withdrawal-amount: u0,
             withdrawal-unlock-block: u0,
@@ -344,7 +344,7 @@
       event: "vault-deposit",
       agent: caller,
       amount: amount,
-      block-height: block-height
+      block-height: stacks-block-height
     })
 
     ;; Release reentrancy lock and return success
@@ -365,7 +365,7 @@
 
     ;; Transfer USDh from caller to vault
     (try! (contract-call? .token-usdh transfer amount tx-sender (as-contract tx-sender) none))
-    
+
     ;; Update agent balance (similar logic to deposit)
     (match (map-get? agent-balances { agent: agent })
       existing-balance
@@ -375,7 +375,7 @@
             {
               principal-amount: (+ (get principal-amount existing-balance) amount),
               deposited-at-block: (get deposited-at-block existing-balance),
-              last-yield-claim-block: block-height,
+              last-yield-claim-block: stacks-block-height,
               total-yield-earned: (+ (get total-yield-earned existing-balance) current-yield),
               pending-withdrawal-amount: (get pending-withdrawal-amount existing-balance),
               withdrawal-unlock-block: (get withdrawal-unlock-block existing-balance),
@@ -389,8 +389,8 @@
           { agent: agent }
           {
             principal-amount: amount,
-            deposited-at-block: block-height,
-            last-yield-claim-block: block-height,
+            deposited-at-block: stacks-block-height,
+            last-yield-claim-block: stacks-block-height,
             total-yield-earned: u0,
             pending-withdrawal-amount: u0,
             withdrawal-unlock-block: u0,
@@ -420,7 +420,7 @@
       agent: agent,
       amount: amount,
       depositor: tx-sender,
-      block-height: block-height
+      block-height: stacks-block-height
     })
 
     ;; Release reentrancy lock and return
@@ -450,8 +450,8 @@
             { agent: caller }
             (merge balance-data {
               pending-withdrawal-amount: amount,
-              withdrawal-unlock-block: (+ block-height (var-get withdrawal-delay-blocks)),
-              last-yield-claim-block: block-height,
+              withdrawal-unlock-block: (+ stacks-block-height (var-get withdrawal-delay-blocks)),
+              last-yield-claim-block: stacks-block-height,
               total-yield-earned: (+ (get total-yield-earned balance-data) current-yield)
             })
           )
@@ -479,8 +479,8 @@
           (principal-amount (get principal-amount balance-data))
         )
           (asserts! (> pending-amount u0) ERR-INVALID-AMOUNT)
-          (asserts! (>= block-height unlock-block) ERR-WITHDRAWAL-LOCKED)
-          
+          (asserts! (>= stacks-block-height unlock-block) ERR-WITHDRAWAL-LOCKED)
+
           ;; Calculate how much to take from principal vs yield
           (let (
             (total-available (+ principal-amount current-yield))
@@ -489,14 +489,14 @@
           )
             ;; Transfer USDh to caller
             (try! (as-contract (contract-call? .token-usdh transfer pending-amount tx-sender caller none)))
-            
+
             ;; Update balance
             (map-set agent-balances
               { agent: caller }
               {
                 principal-amount: (- principal-amount principal-to-withdraw),
                 deposited-at-block: (get deposited-at-block balance-data),
-                last-yield-claim-block: block-height,
+                last-yield-claim-block: stacks-block-height,
                 total-yield-earned: (+ (get total-yield-earned balance-data) yield-to-withdraw),
                 pending-withdrawal-amount: u0,
                 withdrawal-unlock-block: u0,
@@ -523,7 +523,7 @@
               amount: pending-amount,
               principal-withdrawn: principal-to-withdraw,
               yield-withdrawn: yield-to-withdraw,
-              block-height: block-height
+              block-height: stacks-block-height
             })
 
             ;; Release reentrancy lock
@@ -575,10 +575,10 @@
           (net-amount (- amount fee))
         )
           (asserts! (>= total-available amount) ERR-INSUFFICIENT-BALANCE)
-          
+
           ;; Transfer net amount to agent
           (try! (as-contract (contract-call? .token-usdh transfer net-amount tx-sender agent none)))
-          
+
           ;; Update balance
           (let (
             (principal-to-deduct (if (>= current-yield amount) u0 (- amount current-yield)))
@@ -588,7 +588,7 @@
               {
                 principal-amount: (- (get principal-amount balance-data) principal-to-deduct),
                 deposited-at-block: (get deposited-at-block balance-data),
-                last-yield-claim-block: block-height,
+                last-yield-claim-block: stacks-block-height,
                 total-yield-earned: (+ (get total-yield-earned balance-data) (if (>= current-yield amount) amount current-yield)),
                 pending-withdrawal-amount: u0,
                 withdrawal-unlock-block: u0,
@@ -629,7 +629,7 @@
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (map-set authorized-operators
       { operator: operator }
-      { enabled: true, added-at: block-height }
+      { enabled: true, added-at: stacks-block-height }
     )
     (ok true)
   )
@@ -641,7 +641,7 @@
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (map-set authorized-operators
       { operator: operator }
-      { enabled: false, added-at: block-height }
+      { enabled: false, added-at: stacks-block-height }
     )
     (ok true)
   )
@@ -654,7 +654,7 @@
     (asserts! (> new-apy u0) ERR-INVALID-AMOUNT) ;; Must be > 0
     (asserts! (<= new-apy u5000) ERR-INVALID-AMOUNT) ;; Max 50% APY (5000 bps)
     (var-set yield-apy-basis-points new-apy)
-    (print { event: "apy-updated", new-apy: new-apy, updated-at: block-height })
+    (print { event: "apy-updated", new-apy: new-apy, updated-at: stacks-block-height })
     (ok true)
   )
 )
@@ -666,7 +666,7 @@
     (asserts! (> new-minimum u0) ERR-INVALID-AMOUNT)
     (asserts! (<= new-minimum u1000000000) ERR-INVALID-AMOUNT) ;; Max 1000 USDh minimum
     (var-set minimum-deposit new-minimum)
-    (print { event: "minimum-deposit-updated", new-minimum: new-minimum, updated-at: block-height })
+    (print { event: "minimum-deposit-updated", new-minimum: new-minimum, updated-at: stacks-block-height })
     (ok true)
   )
 )
@@ -678,7 +678,7 @@
     (asserts! (> new-capacity u0) ERR-INVALID-AMOUNT)
     (asserts! (>= new-capacity (get total-deposited (get-vault-stats))) ERR-VAULT-FULL) ;; Can't reduce below current deposits
     (var-set maximum-vault-capacity new-capacity)
-    (print { event: "vault-capacity-updated", new-capacity: new-capacity, updated-at: block-height })
+    (print { event: "vault-capacity-updated", new-capacity: new-capacity, updated-at: stacks-block-height })
     (ok true)
   )
 )
@@ -716,12 +716,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (asserts! (var-get vault-paused) ERR-VAULT-PAUSED) ;; Must pause first
-    
+
     (let ((stats (get-vault-stats)))
-      (try! (as-contract (contract-call? .token-usdh transfer 
-        (get total-deposited stats) 
-        tx-sender 
-        recipient 
+      (try! (as-contract (contract-call? .token-usdh transfer
+        (get total-deposited stats)
+        tx-sender
+        recipient
         none)))
       (ok (get total-deposited stats))
     )
