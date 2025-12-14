@@ -4,25 +4,25 @@ clarinet_version = "3.11.0"
 
 [contracts.token-usdh]
 path = "token-usdh.clar"
-clarity_version = 3
-epoch = "3.0"
+clarity_version = 4
+epoch = "3.3"
 
 [contracts.agent-registry]
 path = "agent-registry.clar"
-clarity_version = 3
-epoch = "3.0"
+clarity_version = 4
+epoch = "3.3"
 
 [contracts.yield-vault]
 path = "yield-vault.clar"
 depends_on = ["token-usdh"]
-clarity_version = 3
-epoch = "3.0"
+clarity_version = 4
+epoch = "3.3"
 
 [contracts.payment-router]
 path = "payment-router.clar"
 depends_on = ["agent-registry", "yield-vault"]
-clarity_version = 3
-epoch = "3.0"
+clarity_version = 4
+epoch = "3.3"
 
 [networks]
 [networks.devnet]
@@ -34,7 +34,6 @@ deployment_fee_rate = 1000
 node_rpc_address = "https://api.testnet.hiro.so"
 node_rpc_port = 443
 deployment_fee_rate = 1
-deployment_sender_address = "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
 
 [networks.mainnet]
 node_rpc_address = "https://api.hiro.so"
