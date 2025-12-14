@@ -15,11 +15,8 @@ echo "Testnet Deployment - Simple Method"
 echo "========================================="
 echo ""
 
-# Deployer info
-DEPLOYER="ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
-MNEMONIC="twice kind fence tip hidden tilt action fragile skin nothing glory cousin green tomorrow spring wrist shed math olympic multiply hip blue scout claw"
-
-echo "Deployer Address: $DEPLOYER"
+# Deployer info will be derived from mnemonic in settings/Testnet.toml
+echo "Deployer address will be derived from configured mnemonic"
 echo ""
 
 # Step 1: Check contracts
