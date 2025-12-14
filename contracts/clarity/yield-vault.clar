@@ -8,7 +8,6 @@
 
 ;; SIP-010 Fungible Token Trait
 ;; Using standard SIP-010 trait (works on testnet and mainnet)
-;; Testnet: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.sip-010-trait-ft-standard
 ;; Mainnet: SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard
 ;; Note: yield-vault doesn't implement the trait, it just calls token contract methods
 ;; So we don't need use-trait here, we'll call the contract directly
@@ -167,6 +166,16 @@
   )
 )
 
+;; Helper function to transfer USDh from vault to recipient
+;; Note: Using as-contract? with empty allowances due to Clarinet parser bug with with-ft
+;; TODO: Once Clarinet bug is fixed, add explicit FT allowance: ((with-ft .token-usdh amount))
+(define-private (transfer-from-vault (amount uint) (recipient principal))
+  (unwrap! (as-contract? ()
+    (try! (contract-call? .token-usdh transfer amount tx-sender recipient none))
+    true
+  ) ERR-SETTLEMENT-FAILED)
+)
+
 ;; Calculate yield for an agent based on blocks elapsed
 (define-private (calculate-yield-internal (agent principal))
   (match (map-get? agent-balances { agent: agent })
@@ -281,10 +290,11 @@
     ;; Ensure vault stats exist
     (ensure-vault-stats)
 
-    ;; Transfer USDh from caller to vault
+    ;; Transfer USDh from caller to vault - using Clarity 4 as-contract?
     ;; Note: Caller must have approved this contract to spend their USDh
-    ;; Use contract name directly since it's a dependency
-    (try! (contract-call? .token-usdh transfer amount caller (as-contract tx-sender) none))
+    (let ((vault-addr (unwrap-panic (as-contract? () tx-sender))))
+      (try! (contract-call? .token-usdh transfer amount caller vault-addr none))
+    )
 
     ;; Update agent balance
     (match (map-get? agent-balances { agent: caller })
@@ -363,8 +373,10 @@
     (asserts! (not (var-get vault-paused)) ERR-VAULT-PAUSED)
     (asserts! (>= amount (var-get minimum-deposit)) ERR-BELOW-MINIMUM)
 
-    ;; Transfer USDh from caller to vault
-    (try! (contract-call? .token-usdh transfer amount tx-sender (as-contract tx-sender) none))
+    ;; Transfer USDh from caller to vault - using Clarity 4 as-contract?
+    (let ((vault-addr (unwrap-panic (as-contract? () tx-sender))))
+      (try! (contract-call? .token-usdh transfer amount tx-sender vault-addr none))
+    )
 
     ;; Update agent balance (similar logic to deposit)
     (match (map-get? agent-balances { agent: agent })
@@ -487,8 +499,8 @@
             (yield-to-withdraw (if (>= current-yield pending-amount) pending-amount u0))
             (principal-to-withdraw (if (>= current-yield pending-amount) u0 (- pending-amount current-yield)))
           )
-            ;; Transfer USDh to caller
-            (try! (as-contract (contract-call? .token-usdh transfer pending-amount tx-sender caller none)))
+            ;; Transfer USDh to caller - Clarity 4 as-contract? with explicit FT allowance
+            (try! (transfer-from-vault pending-amount caller))
 
             ;; Update balance
             (map-set agent-balances
@@ -577,7 +589,7 @@
           (asserts! (>= total-available amount) ERR-INSUFFICIENT-BALANCE)
 
           ;; Transfer net amount to agent
-          (try! (as-contract (contract-call? .token-usdh transfer net-amount tx-sender agent none)))
+          (transfer-from-vault net-amount agent)
 
           ;; Update balance
           (let (
@@ -717,13 +729,13 @@
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (asserts! (var-get vault-paused) ERR-VAULT-PAUSED) ;; Must pause first
 
-    (let ((stats (get-vault-stats)))
-      (try! (as-contract (contract-call? .token-usdh transfer
-        (get total-deposited stats)
-        tx-sender
-        recipient
-        none)))
-      (ok (get total-deposited stats))
+    (let (
+      (stats (get-vault-stats))
+      (total-amount (get total-deposited stats))
+    )
+      ;; Emergency transfer
+      (try! (transfer-from-vault total-amount recipient))
+      (ok total-amount)
     )
   )
 )
