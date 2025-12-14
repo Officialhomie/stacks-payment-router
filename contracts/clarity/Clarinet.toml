@@ -4,17 +4,25 @@ clarinet_version = "3.11.0"
 
 [contracts.token-usdh]
 path = "token-usdh.clar"
+clarity_version = 3
+epoch = "3.0"
 
 [contracts.agent-registry]
 path = "agent-registry.clar"
+clarity_version = 3
+epoch = "3.0"
 
 [contracts.yield-vault]
 path = "yield-vault.clar"
 depends_on = ["token-usdh"]
+clarity_version = 3
+epoch = "3.0"
 
 [contracts.payment-router]
 path = "payment-router.clar"
 depends_on = ["agent-registry", "yield-vault"]
+clarity_version = 3
+epoch = "3.0"
 
 [networks]
 [networks.devnet]
