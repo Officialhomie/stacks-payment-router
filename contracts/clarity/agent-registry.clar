@@ -590,6 +590,7 @@
 ;; ============================================
 
 ;; Record a payment (called by authorized payment router)
+;; SECURITY FIX: Atomic check-and-increment for rate limiting to prevent TOCTOU
 (define-public (record-payment (agent principal) (amount uint) (chain (string-ascii 20)))
   (begin
     (asserts! (is-authorized) (err ERR-UNAUTHORIZED))
@@ -602,41 +603,36 @@
           (asserts! (>= amount (get min-payment-amount agent-data)) (err ERR-INVALID-AMOUNT))
           (asserts! (<= amount (get max-payment-amount agent-data)) (err ERR-INVALID-AMOUNT))
 
-          ;; PRODUCTION: Enforce rate limits
-          (asserts! (check-rate-limits agent) (err ERR-RATE-LIMITED))
-
-          ;; Update rate limit counters with proper reset logic
-          (begin
-            (match (map-get? agent-rate-limits { agent: agent })
-              rate-limit-data
-                (let (
-                  (hourly-reset-due (>= (- stacks-block-height (get last-hour-reset rate-limit-data)) u6))
-                  (daily-reset-due (>= (- stacks-block-height (get last-day-reset rate-limit-data)) u144))
-                  (current-hourly (if hourly-reset-due u0 (get payments-last-hour rate-limit-data)))
-                  (current-daily (if daily-reset-due u0 (get payments-last-day rate-limit-data)))
-                )
-                  (map-set agent-rate-limits
-                    { agent: agent }
-                    {
-                      payments-last-hour: (+ current-hourly u1),
-                      last-hour-reset: (if hourly-reset-due stacks-block-height (get last-hour-reset rate-limit-data)),
-                      payments-last-day: (+ current-daily u1),
-                      last-day-reset: (if daily-reset-due stacks-block-height (get last-day-reset rate-limit-data))
-                    }
-                  )
-                )
-              ;; Initialize rate limit tracking if not exists
-              (map-set agent-rate-limits
-                { agent: agent }
-                {
-                  payments-last-hour: u1,
-                  last-hour-reset: stacks-block-height,
-                  payments-last-day: u1,
-                  last-day-reset: stacks-block-height
-                }
-              )
+          ;; SECURITY FIX: Atomic check-and-increment for rate limiting
+          ;; INCREMENT FIRST, then check limits - prevents TOCTOU race condition
+          (let (
+            (rate-limit-data (default-to 
+              { payments-last-hour: u0, last-hour-reset: stacks-block-height, payments-last-day: u0, last-day-reset: stacks-block-height }
+              (map-get? agent-rate-limits { agent: agent })))
+            (limits (default-to
+              { max-payments-per-hour: u100, max-payments-per-day: u1000, max-volume-per-day: u10000000000000 }
+              (map-get? agent-daily-limits { agent: agent })))
+            (hourly-reset-due (>= (- stacks-block-height (get last-hour-reset rate-limit-data)) u6))
+            (daily-reset-due (>= (- stacks-block-height (get last-day-reset rate-limit-data)) u144))
+            (current-hourly (if hourly-reset-due u0 (get payments-last-hour rate-limit-data)))
+            (current-daily (if daily-reset-due u0 (get payments-last-day rate-limit-data)))
+            (new-hourly (+ current-hourly u1))
+            (new-daily (+ current-daily u1))
+          )
+            ;; FIRST: Update counters atomically
+            (map-set agent-rate-limits
+              { agent: agent }
+              {
+                payments-last-hour: new-hourly,
+                last-hour-reset: (if hourly-reset-due stacks-block-height (get last-hour-reset rate-limit-data)),
+                payments-last-day: new-daily,
+                last-day-reset: (if daily-reset-due stacks-block-height (get last-day-reset rate-limit-data))
+              }
             )
-            true
+            
+            ;; THEN: Check limits (after increment to prevent race condition)
+            (asserts! (<= new-hourly (get max-payments-per-hour limits)) (err ERR-RATE-LIMITED))
+            (asserts! (<= new-daily (get max-payments-per-day limits)) (err ERR-RATE-LIMITED))
           )
           
           ;; Update agent stats
@@ -650,15 +646,12 @@
           )
           
           ;; Update payment address last-used
-          (begin
-            (match (map-get? agent-payment-addresses { agent: agent, chain: chain })
-              addr-data
-                (map-set agent-payment-addresses
-                  { agent: agent, chain: chain }
-                  (merge addr-data { last-used-at: stacks-block-height })
-                )
-              true
-            )
+          (match (map-get? agent-payment-addresses { agent: agent, chain: chain })
+            addr-data
+              (map-set agent-payment-addresses
+                { agent: agent, chain: chain }
+                (merge addr-data { last-used-at: stacks-block-height })
+              )
             true
           )
           
@@ -719,6 +712,13 @@
       { operator: operator }
       { enabled: true, role: role, added-at: stacks-block-height }
     )
+    (print {
+      event: "operator-added",
+      operator: operator,
+      role: role,
+      added-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -728,6 +728,12 @@
   (begin
     (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
     (map-delete authorized-operators { operator: operator })
+    (print {
+      event: "operator-removed",
+      operator: operator,
+      removed-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -748,6 +754,13 @@
               suspension-reason: (some reason)
             })
           )
+          (print {
+            event: "agent-suspended",
+            agent: agent,
+            reason: reason,
+            suspended-by: tx-sender,
+            block-height: stacks-block-height
+          })
           (ok true)
         )
       (err ERR-AGENT-NOT-FOUND)
@@ -771,6 +784,12 @@
               suspension-reason: none
             })
           )
+          (print {
+            event: "agent-unsuspended",
+            agent: agent,
+            unsuspended-by: tx-sender,
+            block-height: stacks-block-height
+          })
           (ok true)
         )
       (err ERR-AGENT-NOT-FOUND)
@@ -817,6 +836,12 @@
   (begin
     (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
     (var-set is-paused paused)
+    (print {
+      event: "contract-paused-updated",
+      paused: paused,
+      updated-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -917,6 +942,12 @@
   (begin
     (asserts! (is-owner) (err ERR-NOT-AUTHORIZED))
     (var-set contract-owner (some new-owner))
+    (print {
+      event: "ownership-transferred",
+      previous-owner: tx-sender,
+      new-owner: new-owner,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
