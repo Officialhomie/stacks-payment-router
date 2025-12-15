@@ -234,7 +234,7 @@
     
     ;; Verify agent exists and is active
     (let (
-      (optional-agent (contract-call? .agent-registry get-agent agent))
+      (optional-agent (contract-call? .agent-registry-v2 get-agent agent))
       (agent-data (unwrap! optional-agent ERR-AGENT-NOT-FOUND))
     )
         (asserts! (is-eq (get status agent-data) "active") ERR-AGENT-NOT-FOUND)
@@ -438,14 +438,14 @@
           ) ERR-ALREADY-PROCESSED)
           
           ;; Record payment in agent registry
-          (unwrap! (contract-call? .agent-registry record-payment 
+          (unwrap! (contract-call? .agent-registry-v2 record-payment 
             agent 
             net-amount 
             (get source-chain payment)) ERR-SETTLEMENT-FAILED)
           
           ;; Deposit to yield vault (simplified - always deposit, TODO: add auto-withdraw support)
-          (asserts! (is-some (contract-call? .agent-registry get-agent agent)) ERR-AGENT-NOT-FOUND)
-                (unwrap! (contract-call? .yield-vault deposit-for-agent agent net-amount) ERR-SETTLEMENT-FAILED)
+          (asserts! (is-some (contract-call? .agent-registry-v2 get-agent agent)) ERR-AGENT-NOT-FOUND)
+                (unwrap! (contract-call? .yield-vault-v2 deposit-for-agent agent net-amount) ERR-SETTLEMENT-FAILED)
           
           ;; Update payment intent
           (map-set payment-intents
@@ -566,24 +566,24 @@
           ) ERR-ALREADY-PROCESSED)
 
           ;; Record payment in agent registry
-          (unwrap! (contract-call? .agent-registry record-payment
+          (unwrap! (contract-call? .agent-registry-v2 record-payment
             agent
             net-amount
             (get source-chain payment)) ERR-SETTLEMENT-FAILED)
 
           ;; Verify agent exists and has auto-withdraw enabled
           (let (
-            (optional-agent (contract-call? .agent-registry get-agent agent))
+            (optional-agent (contract-call? .agent-registry-v2 get-agent agent))
             (agent-data (unwrap! optional-agent ERR-AGENT-NOT-FOUND))
           )
               (asserts! (get auto-withdraw agent-data) ERR-NOT-AUTHORIZED)
           )
 
           ;; Deposit to vault first
-          (unwrap! (contract-call? .yield-vault deposit-for-agent agent net-amount) ERR-SETTLEMENT-FAILED)
+          (unwrap! (contract-call? .yield-vault-v2 deposit-for-agent agent net-amount) ERR-SETTLEMENT-FAILED)
 
           ;; Then immediately withdraw (instant withdrawal with fee)
-          (unwrap! (contract-call? .yield-vault instant-withdraw agent net-amount) ERR-SETTLEMENT-FAILED)
+          (unwrap! (contract-call? .yield-vault-v2 instant-withdraw agent net-amount) ERR-SETTLEMENT-FAILED)
 
           ;; Update payment intent
           (map-set payment-intents
@@ -648,6 +648,13 @@
       { operator: operator }
       { enabled: true, role: role, added-at: stacks-block-height }
     )
+    (print {
+      event: "operator-added",
+      operator: operator,
+      role: role,
+      added-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -656,6 +663,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (map-delete authorized-operators { operator: operator })
+    (print {
+      event: "operator-removed",
+      operator: operator,
+      removed-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -674,6 +687,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set is-paused paused)
+    (print {
+      event: "contract-paused-updated",
+      paused: paused,
+      updated-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -688,6 +707,11 @@
     (asserts! (not (var-get is-initialized)) ERR-ALREADY-PROCESSED)
     (var-set contract-owner (some tx-sender))
     (var-set is-initialized true)
+    (print {
+      event: "contract-initialized",
+      owner: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -697,6 +721,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set contract-owner (some new-owner))
+    (print {
+      event: "ownership-transferred",
+      previous-owner: tx-sender,
+      new-owner: new-owner,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -706,6 +736,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set agent-registry-contract (some contract))
+    (print {
+      event: "agent-registry-contract-updated",
+      new-contract: contract,
+      updated-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -715,6 +751,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set yield-vault-contract (some contract))
+    (print {
+      event: "yield-vault-contract-updated",
+      new-contract: contract,
+      updated-by: tx-sender,
+      block-height: stacks-block-height
+    })
     (ok true)
   )
 )
