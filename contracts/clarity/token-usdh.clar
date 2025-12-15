@@ -22,6 +22,9 @@
 (define-constant TOKEN-DECIMALS u6)
 (define-constant TOKEN-URI (some u"https://hermetica.fi/usdh"))
 
+;; Define the fungible token (required for as-contract? with-ft)
+(define-fungible-token usdh)
+
 ;; ============================================
 ;; DATA VARIABLES
 ;; ============================================
@@ -120,6 +123,71 @@
         amount: amount
       })
 
+      (ok true)
+    )
+  )
+)
+
+;; ============================================
+;; AUTHORIZED CONTRACT TRANSFERS
+;; ============================================
+
+;; Map of authorized contracts that can transfer tokens on behalf of accounts
+(define-map authorized-contracts
+  { contract: principal }
+  { enabled: bool }
+)
+
+;; Add authorized contract (owner only)
+(define-public (add-authorized-contract (contract principal))
+  (begin
+    (asserts! (is-owner) ERR-NOT-AUTHORIZED)
+    (map-set authorized-contracts { contract: contract } { enabled: true })
+    (print { event: "authorized-contract-added", contract: contract })
+    (ok true)
+  )
+)
+
+;; Remove authorized contract (owner only)
+(define-public (remove-authorized-contract (contract principal))
+  (begin
+    (asserts! (is-owner) ERR-NOT-AUTHORIZED)
+    (map-delete authorized-contracts { contract: contract })
+    (print { event: "authorized-contract-removed", contract: contract })
+    (ok true)
+  )
+)
+
+;; Check if contract is authorized
+(define-read-only (is-authorized-contract (contract principal))
+  (default-to false (get enabled (map-get? authorized-contracts { contract: contract })))
+)
+
+;; Transfer by authorized contract (e.g., yield-vault transferring its own tokens)
+;; The contract-caller must be an authorized contract
+;; The sender must be the contract-caller itself (contracts can only transfer their own tokens)
+(define-public (contract-transfer (amount uint) (recipient principal))
+  (let (
+    (sender contract-caller)
+  )
+    (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+    (asserts! (is-authorized-contract sender) ERR-NOT-AUTHORIZED)
+    
+    (let ((sender-balance (get-balance-uint sender)))
+      (asserts! (>= sender-balance amount) ERR-INSUFFICIENT-BALANCE)
+      
+      ;; Update balances
+      (map-set balances { account: sender } { balance: (- sender-balance amount) })
+      (map-set balances { account: recipient } { balance: (+ (get-balance-uint recipient) amount) })
+      
+      ;; Print event
+      (print {
+        event: "contract-transfer",
+        sender: sender,
+        recipient: recipient,
+        amount: amount
+      })
+      
       (ok true)
     )
   )
@@ -266,6 +334,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (map-set authorized-minters { minter: minter } { enabled: true })
+    (print {
+      event: "minter-added",
+      minter: minter,
+      added-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -275,6 +349,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (map-delete authorized-minters { minter: minter })
+    (print {
+      event: "minter-removed",
+      minter: minter,
+      removed-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -289,6 +369,11 @@
     (asserts! (not (var-get is-initialized)) ERR-ALREADY-PROCESSED)
     (var-set contract-owner (some tx-sender))
     (var-set is-initialized true)
+    (print {
+      event: "contract-initialized",
+      owner: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -298,6 +383,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set contract-owner (some new-owner))
+    (print {
+      event: "ownership-transferred",
+      previous-owner: tx-sender,
+      new-owner: new-owner,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
