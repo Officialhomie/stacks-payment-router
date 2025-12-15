@@ -9,31 +9,31 @@ plan:
     - id: 0
       transactions:
         - contract-publish:
-            contract-name: agent-registry
-            expected-sender: deployer
-            cost: 257490
+            contract-name: agent-registry-v2
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 292430
             path: agent-registry.clar
             anchor-block-only: true
-            clarity-version: 3
+            clarity-version: 4
         - contract-publish:
-            contract-name: token-usdh
-            expected-sender: deployer
-            cost: 87010
+            contract-name: token-usdh-v2
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 115130
             path: token-usdh.clar
             anchor-block-only: true
-            clarity-version: 3
+            clarity-version: 4
         - contract-publish:
-            contract-name: yield-vault
-            expected-sender: deployer
-            cost: 240890
+            contract-name: yield-vault-v2
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 296500
             path: yield-vault.clar
             anchor-block-only: true
-            clarity-version: 3
+            clarity-version: 4
         - contract-publish:
-            contract-name: payment-router
-            expected-sender: deployer
-            cost: 211770
+            contract-name: payment-router-v2
+            expected-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            cost: 223900
             path: payment-router.clar
             anchor-block-only: true
-            clarity-version: 3
+            clarity-version: 4
       epoch: "3.3"
