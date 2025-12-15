@@ -1,23 +1,19 @@
 ;; Yield Vault Contract
 ;; Manages USDh deposits and yield calculations for the payment router
 ;; Integrates with Hermetica Protocol for yield generation
-
-;; ============================================
-;; TRAITS AND IMPORTS
-;; ============================================
-
-;; SIP-010 Fungible Token Trait
-;; Using standard SIP-010 trait (works on testnet and mainnet)
-;; Mainnet: SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard
-;; Note: yield-vault doesn't implement the trait, it just calls token contract methods
-;; So we don't need use-trait here, we'll call the contract directly
+;;
+;; SECURITY MODEL (Clarity 4 Compatible):
+;; - Deposits: User calls deposit(), vault executes transfer FROM user TO vault
+;;   User is tx-sender and authorizes their own transfer atomically
+;; - Withdrawals: Vault uses contract-transfer (authorized contract pattern)
+;;   This grants the contract permission to transfer its own tokens
 
 ;; ============================================
 ;; CONSTANTS
 ;; ============================================
 
-;; Error codes
-(define-constant ERR-NOT-AUTHORIZED (err u1000))
+;; Error codes - standardized with unique codes
+(define-constant ERR-NOT-AUTHORIZED (err u2000))
 (define-constant ERR-INSUFFICIENT-BALANCE (err u2001))
 (define-constant ERR-VAULT-FULL (err u2002))
 (define-constant ERR-INVALID-AMOUNT (err u2003))
@@ -26,14 +22,15 @@
 (define-constant ERR-BELOW-MINIMUM (err u2006))
 (define-constant ERR-AGENT-NOT-FOUND (err u2007))
 (define-constant ERR-ALREADY-PROCESSED (err u2008))
+(define-constant ERR-SETTLEMENT-FAILED (err u2009))
+(define-constant ERR-CONTRACT-NOT-INITIALIZED (err u2010))
+(define-constant ERR-TRANSFER-FAILED (err u2011))
+(define-constant ERR-VAULT-ADDRESS-NOT-SET (err u2012))
 
 ;; Configuration constants
 (define-constant USDH-DECIMALS u6)
 (define-constant BASIS-POINTS u10000)
 (define-constant BLOCKS-PER-YEAR u52560) ;; ~10 min blocks * 6 * 24 * 365
-
-;; Error codes
-(define-constant ERR-CONTRACT-NOT-INITIALIZED (err u2008))
 
 ;; ============================================
 ;; DATA VARIABLES
@@ -45,15 +42,22 @@
 ;; Contract initialization flag
 (define-data-var is-initialized bool false)
 
+;; Vault's own address - MUST be set during initialize-contract()
+;; This is required because Clarity 4 removed the simple (as-contract tx-sender) pattern
+(define-data-var vault-address (optional principal) none)
+
 ;; Vault configuration (can be updated by owner)
 (define-data-var yield-apy-basis-points uint u2000) ;; 20% APY = 2000 basis points
 (define-data-var minimum-deposit uint u1000000) ;; 1 USDh minimum (6 decimals)
+(define-data-var minimum-withdrawal uint u1000000) ;; 1 USDh minimum withdrawal (6 decimals)
 (define-data-var maximum-vault-capacity uint u100000000000000) ;; 100M USDh max
 (define-data-var vault-paused bool false)
 (define-data-var withdrawal-delay-blocks uint u144) ;; ~24 hours in blocks
 (define-data-var protocol-fee-basis-points uint u100) ;; 1% protocol fee on yield
 
-;; USDh token contract reference (configurable)
+;; USDh token contract reference (for mainnet Hermetica integration)
+;; Default: .token-usdh-v2 (local mock for testing)
+;; Mainnet: Set to Hermetica's USDh contract via set-usdh-contract()
 (define-data-var usdh-token-contract (optional principal) none)
 
 ;; ============================================
@@ -138,11 +142,11 @@
   )
 )
 
-;; Release reentrancy lock
+;; Release reentrancy lock - simplified to just return true (map-set always succeeds)
 (define-private (release-lock (caller principal))
   (begin
     (map-set reentrancy-guard { caller: caller } { locked: false })
-    (ok true)
+    true
   )
 )
 
@@ -164,16 +168,6 @@
       true
     )
   )
-)
-
-;; Helper function to transfer USDh from vault to recipient
-;; Note: Using as-contract? with empty allowances due to Clarinet parser bug with with-ft
-;; TODO: Once Clarinet bug is fixed, add explicit FT allowance: ((with-ft .token-usdh amount))
-(define-private (transfer-from-vault (amount uint) (recipient principal))
-  (unwrap! (as-contract? ()
-    (try! (contract-call? .token-usdh transfer amount tx-sender recipient none))
-    true
-  ) ERR-SETTLEMENT-FAILED)
 )
 
 ;; Calculate yield for an agent based on blocks elapsed
@@ -272,13 +266,34 @@
   )
 )
 
+;; Get the vault's own address (useful for frontend integrations)
+;; Returns none if not yet initialized
+(define-read-only (get-vault-address)
+  (var-get vault-address)
+)
+
+;; Helper to get vault address or fail - returns (response principal uint)
+(define-private (get-vault-address-or-fail)
+  (ok (unwrap! (var-get vault-address) ERR-VAULT-ADDRESS-NOT-SET))
+)
+
+;; Get minimum withdrawal amount
+(define-read-only (get-minimum-withdrawal)
+  (var-get minimum-withdrawal)
+)
+
 ;; ============================================
 ;; PUBLIC FUNCTIONS - DEPOSITS
 ;; ============================================
 
 ;; Deposit USDh to vault
+;; SECURITY: Atomic transfer pattern - user calls deposit(), vault executes transfer
+;; No two-step pattern needed - tx-sender remains the user throughout
 (define-public (deposit (amount uint))
-  (let ((caller tx-sender))
+  (let (
+    (caller tx-sender)
+    (vault-addr (unwrap! (var-get vault-address) ERR-VAULT-ADDRESS-NOT-SET))
+  )
     ;; Reentrancy protection
     (try! (acquire-lock caller))
 
@@ -290,13 +305,11 @@
     ;; Ensure vault stats exist
     (ensure-vault-stats)
 
-    ;; Transfer USDh from caller to vault - using Clarity 4 as-contract?
-    ;; Note: Caller must have approved this contract to spend their USDh
-    (let ((vault-addr (unwrap-panic (as-contract? () tx-sender))))
-      (try! (contract-call? .token-usdh transfer amount caller vault-addr none))
-    )
+    ;; ATOMIC TRANSFER: User (tx-sender) transfers tokens TO vault
+    ;; Since user is tx-sender, they authorize this transfer of their own tokens
+    (try! (contract-call? .token-usdh-v2 transfer amount caller vault-addr none))
 
-    ;; Update agent balance
+    ;; Update agent balance (only after successful transfer)
     (match (map-get? agent-balances { agent: caller })
       existing-balance
         (let (
@@ -354,17 +367,23 @@
       event: "vault-deposit",
       agent: caller,
       amount: amount,
-      block-height: stacks-block-height
+      stacks-block-height: stacks-block-height
     })
 
     ;; Release reentrancy lock and return success
     (release-lock caller)
+    (ok true)
   )
 )
 
-;; Deposit on behalf of agent (for settlement engine)
+;; Deposit on behalf of agent (for settlement engine / payment-router)
+;; ATOMIC PATTERN: Authorized operator's tokens are transferred atomically
+;; Operator (tx-sender) transfers FROM themselves TO vault, credited to agent
 (define-public (deposit-for-agent (agent principal) (amount uint))
-  (begin
+  (let (
+    (depositor tx-sender)
+    (vault-addr (unwrap! (var-get vault-address) ERR-VAULT-ADDRESS-NOT-SET))
+  )
     (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
 
     ;; Reentrancy protection
@@ -373,12 +392,14 @@
     (asserts! (not (var-get vault-paused)) ERR-VAULT-PAUSED)
     (asserts! (>= amount (var-get minimum-deposit)) ERR-BELOW-MINIMUM)
 
-    ;; Transfer USDh from caller to vault - using Clarity 4 as-contract?
-    (let ((vault-addr (unwrap-panic (as-contract? () tx-sender))))
-      (try! (contract-call? .token-usdh transfer amount tx-sender vault-addr none))
-    )
+    ;; Ensure vault stats exist
+    (ensure-vault-stats)
 
-    ;; Update agent balance (similar logic to deposit)
+    ;; ATOMIC TRANSFER: Depositor (tx-sender) transfers TO vault, credited to agent
+    ;; Since depositor is tx-sender, they authorize this transfer of their own tokens
+    (try! (contract-call? .token-usdh-v2 transfer amount depositor vault-addr none))
+
+    ;; Update agent balance (only after successful transfer)
     (match (map-get? agent-balances { agent: agent })
       existing-balance
         (let ((current-yield (calculate-yield-internal agent)))
@@ -431,12 +452,13 @@
       event: "vault-deposit-for-agent",
       agent: agent,
       amount: amount,
-      depositor: tx-sender,
-      block-height: stacks-block-height
+      depositor: depositor,
+      stacks-block-height: stacks-block-height
     })
 
     ;; Release reentrancy lock and return
     (release-lock agent)
+    (ok true)
   )
 )
 
@@ -475,9 +497,11 @@
 )
 
 ;; Execute withdrawal after time-lock expires
+;; SECURITY: Uses as-contract for secure vault-to-user transfer
 (define-public (execute-withdrawal)
   (let (
     (caller tx-sender)
+    (vault-addr (unwrap! (var-get vault-address) ERR-VAULT-ADDRESS-NOT-SET))
   )
     ;; Reentrancy protection
     (try! (acquire-lock caller))
@@ -491,7 +515,15 @@
           (principal-amount (get principal-amount balance-data))
         )
           (asserts! (> pending-amount u0) ERR-INVALID-AMOUNT)
+          (asserts! (>= pending-amount (var-get minimum-withdrawal)) ERR-BELOW-MINIMUM)
           (asserts! (>= stacks-block-height unlock-block) ERR-WITHDRAWAL-LOCKED)
+
+          ;; SECURITY: Verify vault has sufficient token balance
+          (let (
+            (vault-balance (unwrap! (contract-call? .token-usdh-v2 get-balance vault-addr) ERR-SETTLEMENT-FAILED))
+          )
+            (asserts! (>= vault-balance pending-amount) ERR-INSUFFICIENT-BALANCE)
+          )
 
           ;; Calculate how much to take from principal vs yield
           (let (
@@ -499,8 +531,8 @@
             (yield-to-withdraw (if (>= current-yield pending-amount) pending-amount u0))
             (principal-to-withdraw (if (>= current-yield pending-amount) u0 (- pending-amount current-yield)))
           )
-            ;; Transfer USDh to caller - Clarity 4 as-contract? with explicit FT allowance
-            (try! (transfer-from-vault pending-amount caller))
+            ;; Transfer USDh to caller using authorized contract transfer
+            (try! (contract-call? .token-usdh-v2 contract-transfer pending-amount caller))
 
             ;; Update balance
             (map-set agent-balances
@@ -535,11 +567,11 @@
               amount: pending-amount,
               principal-withdrawn: principal-to-withdraw,
               yield-withdrawn: yield-to-withdraw,
-              block-height: stacks-block-height
+              stacks-block-height: stacks-block-height
             })
 
             ;; Release reentrancy lock
-            (unwrap! (release-lock caller) ERR-NOT-AUTHORIZED)
+            (release-lock caller)
 
             (ok pending-amount)
           )
@@ -571,8 +603,11 @@
 )
 
 ;; Instant withdrawal (for authorized operators only - higher fee)
+;; SECURITY: Uses as-contract for secure vault-to-user transfer
 (define-public (instant-withdraw (agent principal) (amount uint))
-  (begin
+  (let (
+    (vault-addr (unwrap! (var-get vault-address) ERR-VAULT-ADDRESS-NOT-SET))
+  )
     (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
 
     ;; Reentrancy protection
@@ -588,10 +623,17 @@
         )
           (asserts! (>= total-available amount) ERR-INSUFFICIENT-BALANCE)
 
-          ;; Transfer net amount to agent
-          (transfer-from-vault net-amount agent)
+          ;; SECURITY: Verify vault has sufficient token balance
+          (let (
+            (vault-balance (unwrap! (contract-call? .token-usdh-v2 get-balance vault-addr) ERR-SETTLEMENT-FAILED))
+          )
+            (asserts! (>= vault-balance net-amount) ERR-INSUFFICIENT-BALANCE)
+          )
 
-          ;; Update balance
+          ;; Transfer using authorized contract transfer
+          (try! (contract-call? .token-usdh-v2 contract-transfer net-amount agent))
+
+          ;; Update balance (only after successful transfer)
           (let (
             (principal-to-deduct (if (>= current-yield amount) u0 (- amount current-yield)))
           )
@@ -620,8 +662,18 @@
               )
             )
 
+            ;; Emit event
+            (print {
+              event: "vault-instant-withdraw",
+              agent: agent,
+              gross-amount: amount,
+              net-amount: net-amount,
+              fee: fee,
+              stacks-block-height: stacks-block-height
+            })
+
             ;; Release reentrancy lock
-            (unwrap! (release-lock agent) ERR-NOT-AUTHORIZED)
+            (release-lock agent)
 
             (ok net-amount)
           )
@@ -643,6 +695,12 @@
       { operator: operator }
       { enabled: true, added-at: stacks-block-height }
     )
+    (print {
+      event: "operator-added",
+      operator: operator,
+      added-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -655,6 +713,12 @@
       { operator: operator }
       { enabled: false, added-at: stacks-block-height }
     )
+    (print {
+      event: "operator-removed",
+      operator: operator,
+      removed-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -700,6 +764,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set vault-paused paused)
+    (print {
+      event: "vault-paused-updated",
+      paused: paused,
+      updated-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -709,33 +779,77 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set withdrawal-delay-blocks blocks)
+    (print {
+      event: "withdrawal-delay-updated",
+      blocks: blocks,
+      updated-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
 
-;; Update USDh token contract
-;; Note: This is kept for compatibility but contract uses .token-usdh directly
+;; Update minimum withdrawal amount
+(define-public (set-minimum-withdrawal (new-minimum uint))
+  (begin
+    (asserts! (is-owner) ERR-NOT-AUTHORIZED)
+    (asserts! (> new-minimum u0) ERR-INVALID-AMOUNT)
+    (var-set minimum-withdrawal new-minimum)
+    (print {
+      event: "minimum-withdrawal-updated",
+      new-minimum: new-minimum,
+      updated-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
+    (ok true)
+  )
+)
+
+;; Update USDh token contract (for mainnet Hermetica integration)
 (define-public (set-usdh-contract (new-contract principal))
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set usdh-token-contract (some new-contract))
+    (print {
+      event: "usdh-contract-updated",
+      new-contract: new-contract,
+      updated-by: tx-sender,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
 
 ;; Emergency withdraw all funds (owner only)
+;; SECURITY: Must pause vault first, uses as-contract for secure transfer
 (define-public (emergency-withdraw (recipient principal))
-  (begin
+  (let (
+    (vault-addr (unwrap! (var-get vault-address) ERR-VAULT-ADDRESS-NOT-SET))
+  )
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (asserts! (var-get vault-paused) ERR-VAULT-PAUSED) ;; Must pause first
 
     (let (
       (stats (get-vault-stats))
       (total-amount (get total-deposited stats))
+      (vault-balance (unwrap! (contract-call? .token-usdh-v2 get-balance vault-addr) ERR-SETTLEMENT-FAILED))
     )
-      ;; Emergency transfer
-      (try! (transfer-from-vault total-amount recipient))
-      (ok total-amount)
+      ;; Use actual vault balance (may differ from accounting if there were issues)
+      (let ((withdraw-amount (if (< vault-balance total-amount) vault-balance total-amount)))
+        ;; Emergency transfer using authorized contract transfer
+        (try! (contract-call? .token-usdh-v2 contract-transfer withdraw-amount recipient))
+        
+        ;; Emit event
+        (print {
+          event: "emergency-withdraw",
+          recipient: recipient,
+          amount: withdraw-amount,
+          initiated-by: tx-sender,
+          stacks-block-height: stacks-block-height
+        })
+        
+        (ok withdraw-amount)
+      )
     )
   )
 )
@@ -744,12 +858,21 @@
 ;; INITIALIZATION FUNCTIONS
 ;; ============================================
 
-;; Initialize contract (sets owner on first call)
-(define-public (initialize-contract)
+;; Initialize contract (sets owner and vault address on first call)
+;; IMPORTANT: vault-addr parameter MUST be the deployed contract's address
+;; Get this after deployment from clarinet or the transaction receipt
+(define-public (initialize-contract (vault-addr principal))
   (begin
     (asserts! (not (var-get is-initialized)) ERR-ALREADY-PROCESSED)
     (var-set contract-owner (some tx-sender))
+    (var-set vault-address (some vault-addr))
     (var-set is-initialized true)
+    (print {
+      event: "contract-initialized",
+      owner: tx-sender,
+      vault-address: vault-addr,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
@@ -759,6 +882,12 @@
   (begin
     (asserts! (is-owner) ERR-NOT-AUTHORIZED)
     (var-set contract-owner (some new-owner))
+    (print {
+      event: "ownership-transferred",
+      previous-owner: tx-sender,
+      new-owner: new-owner,
+      stacks-block-height: stacks-block-height
+    })
     (ok true)
   )
 )
