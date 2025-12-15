@@ -2,25 +2,25 @@
 name = "payment-router-contracts"
 clarinet_version = "3.11.0"
 
-[contracts.token-usdh]
+[contracts.token-usdh-v2]
 path = "token-usdh.clar"
 clarity_version = 4
 epoch = "3.3"
 
-[contracts.agent-registry]
+[contracts.agent-registry-v2]
 path = "agent-registry.clar"
 clarity_version = 4
 epoch = "3.3"
 
-[contracts.yield-vault]
+[contracts.yield-vault-v2]
 path = "yield-vault.clar"
-depends_on = ["token-usdh"]
+depends_on = ["token-usdh-v2"]
 clarity_version = 4
 epoch = "3.3"
 
-[contracts.payment-router]
+[contracts.payment-router-v2]
 path = "payment-router.clar"
-depends_on = ["agent-registry", "yield-vault"]
+depends_on = ["agent-registry-v2", "yield-vault-v2"]
 clarity_version = 4
 epoch = "3.3"
 
