@@ -97,6 +97,32 @@ export function useVaultStats(agentAddress: string | null, options?: {
 }
 
 /**
+ * Hook to fetch withdrawal history
+ */
+export function useWithdrawalHistory(agentAddress: string | null, options?: {
+  enabled?: boolean;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: ['withdrawal-history', agentAddress, options?.limit, options?.offset],
+    queryFn: async () => {
+      if (!agentAddress) throw new Error('Agent address is required');
+      const response = await apiClient.getWithdrawalHistory(agentAddress, {
+        limit: options?.limit,
+        offset: options?.offset,
+      });
+      if (!response.success || !response.data) {
+        throw new Error(response.error?.message || 'Failed to fetch withdrawal history');
+      }
+      return response.data;
+    },
+    enabled: !!agentAddress && (options?.enabled !== false),
+    staleTime: 60000, // 1 minute
+  });
+}
+
+/**
  * Hook to withdraw from vault
  */
 export function useWithdrawFromVault(agentAddress: string) {
@@ -114,6 +140,7 @@ export function useWithdrawFromVault(agentAddress: string) {
       // Invalidate vault stats to refresh balance
       queryClient.invalidateQueries({ queryKey: ['vault-stats', agentAddress] });
       queryClient.invalidateQueries({ queryKey: ['agent', agentAddress] });
+      queryClient.invalidateQueries({ queryKey: ['withdrawal-history', agentAddress] });
     },
   });
 }
