@@ -14,6 +14,10 @@ router.post(
 
 router.get('/:agentId', controller.getAgent.bind(controller));
 router.get('/:agentId/balance', controller.getBalance.bind(controller));
+router.get('/:agentId/payments', controller.getAgentPayments.bind(controller));
+router.get('/:agentId/vault', controller.getVaultStats.bind(controller));
+router.get('/:agentId/withdrawals', controller.getWithdrawalHistory.bind(controller));
+router.put('/:agentId', controller.updateAgent.bind(controller));
 router.get('/addresses', controller.getAddresses.bind(controller));
 router.post('/:agentId/withdraw', controller.withdraw.bind(controller));
 
