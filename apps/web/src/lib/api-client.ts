@@ -152,7 +152,7 @@ class ApiClient {
     offset?: number;
   }): Promise<ApiResponse<PaymentIntent[]>> {
     const query = new URLSearchParams(params as any).toString();
-    return this.get<PaymentIntent[]>(`/api/agents/${agentAddress}/payments?${query}`);
+    return this.get<PaymentIntent[]>(`/api/v1/agents/${agentAddress}/payments?${query}`);
   }
 
   // ============================================
@@ -216,6 +216,24 @@ class ApiClient {
   }
 
   // ============================================
+  // Admin Methods
+  // ============================================
+
+  /**
+   * Get pending settlements (admin only)
+   */
+  async getPendingSettlements(): Promise<ApiResponse<any[]>> {
+    return this.get<any[]>(`/api/v1/admin/settlements/pending`);
+  }
+
+  /**
+   * Batch settle payments (admin only)
+   */
+  async batchSettle(intentIds: string[], autoWithdraw: boolean = false): Promise<ApiResponse<any[]>> {
+    return this.post<any[]>(`/api/v1/admin/settlements/batch`, { intentIds, autoWithdraw });
+  }
+
+  // ============================================
   // Vault Methods
   // ============================================
 
@@ -223,7 +241,18 @@ class ApiClient {
    * Get vault stats for an agent
    */
   async getVaultStats(agentAddress: string): Promise<ApiResponse<VaultStats>> {
-    return this.get<VaultStats>(`/api/agents/${agentAddress}/vault`);
+    return this.get<VaultStats>(`/api/v1/agents/${agentAddress}/vault`);
+  }
+
+  /**
+   * Get withdrawal history for an agent
+   */
+  async getWithdrawalHistory(agentAddress: string, params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<any[]>> {
+    const query = new URLSearchParams(params as any).toString();
+    return this.get<any[]>(`/api/v1/agents/${agentAddress}/withdrawals?${query}`);
   }
 
   /**
