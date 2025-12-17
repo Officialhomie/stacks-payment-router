@@ -26,50 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PaymentStatus } from '@/components/features/payment/payment-status';
 import { SettlementAction, SettlementActionGroup } from '@/components/features/admin/settlement-action';
 import { formatCurrency, formatAddress } from '@/lib/utils';
-
-// ============================================================================
-// Mock Data (Replace with real API calls)
-// ============================================================================
-
-/**
- * Mock pending payments
- * In production, this would come from: GET /api/admin/settlements/pending
- */
-const mockPendingPayments = [
-  {
-    id: 'payment-001',
-    agentAddress: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM',
-    amount: '150.00',
-    expectedAmount: '0.075',
-    chain: 'ethereum',
-    status: 'detected' as const,
-    txHash: '0x1234567890abcdef',
-    createdAt: new Date(Date.now() - 1000 * 60 * 15), // 15 min ago
-    detectedAt: new Date(Date.now() - 1000 * 60 * 5), // 5 min ago
-  },
-  {
-    id: 'payment-002',
-    agentAddress: 'ST2REHHS5J3CERCRBEPMGH7921Q6PYKAADT7JP2VB',
-    amount: '75.50',
-    expectedAmount: '0.038',
-    chain: 'arbitrum',
-    status: 'detected' as const,
-    txHash: '0xabcdef1234567890',
-    createdAt: new Date(Date.now() - 1000 * 60 * 30), // 30 min ago
-    detectedAt: new Date(Date.now() - 1000 * 60 * 10), // 10 min ago
-  },
-  {
-    id: 'payment-003',
-    agentAddress: 'ST3NBRSFKX28FQ2ZJ1MAKX58HKHSDGNV5N7R21XCP',
-    amount: '200.00',
-    expectedAmount: '0.1',
-    chain: 'base',
-    status: 'detected' as const,
-    txHash: '0xfedcba0987654321',
-    createdAt: new Date(Date.now() - 1000 * 60 * 45), // 45 min ago
-    detectedAt: new Date(Date.now() - 1000 * 60 * 20), // 20 min ago
-  },
-];
+import { useAdminSettlements, useBatchSettle, type PendingPayment } from '@/lib/hooks/use-admin';
 
 // ============================================================================
 // Main Component
@@ -87,7 +44,10 @@ const mockPendingPayments = [
  */
 export default function AdminSettlementsPage() {
   const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
-  const [isLoading] = useState(false);
+  const { data: pendingPayments = [], isLoading, error } = useAdminSettlements({
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+  const batchSettleMutation = useBatchSettle();
 
   // ============================================================================
   // Handlers
@@ -109,7 +69,7 @@ export default function AdminSettlementsPage() {
    * Select all payments in the queue
    */
   const selectAll = () => {
-    setSelectedPayments(mockPendingPayments.map(p => p.id));
+    setSelectedPayments(pendingPayments.map(p => p.intentId));
   };
 
   /**
@@ -124,9 +84,15 @@ export default function AdminSettlementsPage() {
    * Settles all selected payments in sequence
    */
   const handleBatchSettle = async () => {
-    console.log('Batch settling:', selectedPayments);
-    // TODO: Implement batch settlement API call
-    // await apiClient.batchSettle(selectedPayments);
+    try {
+      await batchSettleMutation.mutateAsync({
+        intentIds: selectedPayments,
+        autoWithdraw: false,
+      });
+      setSelectedPayments([]);
+    } catch (error) {
+      console.error('Batch settlement failed:', error);
+    }
   };
 
   /**
@@ -187,7 +153,7 @@ export default function AdminSettlementsPage() {
             <PendingIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockPendingPayments.length}</div>
+            <div className="text-2xl font-bold">{pendingPayments.length}</div>
             <p className="text-xs text-muted-foreground">
               Detected payments awaiting settlement
             </p>
@@ -202,7 +168,7 @@ export default function AdminSettlementsPage() {
           <CardContent>
             <div className="text-2xl font-bold">
               {formatCurrency(
-                mockPendingPayments.reduce((sum, p) => sum + parseFloat(p.amount), 0)
+                pendingPayments.reduce((sum, p) => sum + p.amountUSD, 0)
               )}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -217,7 +183,11 @@ export default function AdminSettlementsPage() {
             <ClockIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">45m</div>
+            <div className="text-2xl font-bold">
+              {pendingPayments.length > 0
+                ? `${Math.round((Date.now() - new Date(pendingPayments[pendingPayments.length - 1].detectedAt).getTime()) / 60000)}m`
+                : '0m'}
+            </div>
             <p className="text-xs text-muted-foreground">
               Time since oldest detection
             </p>
@@ -254,16 +224,25 @@ export default function AdminSettlementsPage() {
                 <Skeleton key={i} className="h-24" />
               ))}
             </div>
-          ) : mockPendingPayments.length > 0 ? (
+          ) : error ? (
+            // Error State
+            <div className="text-center py-12">
+              <div className="text-4xl mb-2">❌</div>
+              <p className="text-destructive font-medium">Error loading payments</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {error instanceof Error ? error.message : 'Failed to fetch pending payments'}
+              </p>
+            </div>
+          ) : pendingPayments.length > 0 ? (
             // Payments List
             <div className="space-y-4">
-              {mockPendingPayments.map((payment) => (
+              {pendingPayments.map((payment) => (
                 <PaymentQueueItem
-                  key={payment.id}
+                  key={payment.intentId}
                   payment={payment}
-                  isSelected={selectedPayments.includes(payment.id)}
-                  onToggleSelect={() => togglePaymentSelection(payment.id)}
-                  onSettlementSuccess={(txId) => handleSettlementSuccess(payment.id, txId)}
+                  isSelected={selectedPayments.includes(payment.intentId)}
+                  onToggleSelect={() => togglePaymentSelection(payment.intentId)}
+                  onSettlementSuccess={(txId) => handleSettlementSuccess(payment.intentId, txId)}
                 />
               ))}
             </div>
@@ -315,11 +294,22 @@ function PaymentQueueItem({
   onToggleSelect,
   onSettlementSuccess,
 }: {
-  payment: typeof mockPendingPayments[0];
+  payment: PendingPayment;
   isSelected: boolean;
   onToggleSelect: () => void;
   onSettlementSuccess: (txId: string) => void;
 }) {
+  const detectedAt = new Date(payment.detectedAt);
+  const explorerUrl = payment.txHash
+    ? payment.sourceChain === 'ethereum'
+      ? `https://etherscan.io/tx/${payment.txHash}`
+      : payment.sourceChain === 'arbitrum'
+      ? `https://arbiscan.io/tx/${payment.txHash}`
+      : payment.sourceChain === 'base'
+      ? `https://basescan.org/tx/${payment.txHash}`
+      : `https://explorer.hiro.so/txid/${payment.txHash}?chain=testnet`
+    : null;
+
   return (
     <div
       className={`
@@ -339,19 +329,19 @@ function PaymentQueueItem({
       {/* Payment Info */}
       <div className="flex-1 space-y-2">
         <div className="flex items-center gap-3">
-          <PaymentStatus status={payment.status} />
+          <PaymentStatus status="detected" />
           <code className="text-xs font-mono text-muted-foreground">
-            {formatAddress(payment.id, 6)}
+            {formatAddress(payment.intentId, 6)}
           </code>
           <Badge variant="outline" className="uppercase text-xs">
-            {payment.chain}
+            {payment.sourceChain}
           </Badge>
         </div>
 
         <div className="flex items-center gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Amount:</span>{' '}
-            <span className="font-semibold">{formatCurrency(payment.amount)}</span>
+            <span className="font-semibold">{formatCurrency(payment.amountUSD)}</span>
           </div>
           <div>
             <span className="text-muted-foreground">Agent:</span>{' '}
@@ -359,31 +349,33 @@ function PaymentQueueItem({
           </div>
           <div>
             <span className="text-muted-foreground">Detected:</span>{' '}
-            <span>{Math.round((Date.now() - payment.detectedAt.getTime()) / 60000)}m ago</span>
+            <span>{Math.round((Date.now() - detectedAt.getTime()) / 60000)}m ago</span>
           </div>
         </div>
 
         {/* Transaction Hash */}
-        <div className="text-xs">
-          <a
-            href={`https://etherscan.io/tx/${payment.txHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline font-mono"
-          >
-            {payment.txHash}
-          </a>
-        </div>
+        {payment.txHash && explorerUrl && (
+          <div className="text-xs">
+            <a
+              href={explorerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline font-mono"
+            >
+              {payment.txHash}
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Settlement Actions */}
-      <SettlementActionGroup intentId={payment.id}>
+      <SettlementActionGroup intentId={payment.intentId}>
         <SettlementActionGroup.Regular
-          intentId={payment.id}
+          intentId={payment.intentId}
           onSuccess={onSettlementSuccess}
         />
         <SettlementActionGroup.Instant
-          intentId={payment.id}
+          intentId={payment.intentId}
           onSuccess={onSettlementSuccess}
         />
       </SettlementActionGroup>
