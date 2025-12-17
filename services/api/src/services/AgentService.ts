@@ -227,6 +227,115 @@ export class AgentService {
   }
 
   /**
+   * Get vault statistics for an agent
+   */
+  async getVaultStats(agentId: string) {
+    const result = await db.query(
+      `SELECT ab.*, a.agent_id
+       FROM agent_balances ab
+       JOIN agents a ON ab.agent_id = a.id
+       WHERE a.agent_id = $1`,
+      [agentId]
+    );
+
+    if (result.rows.length === 0) {
+      const err: AppError = new Error('Agent not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const balance = result.rows[0];
+    const principal = parseFloat(balance.principal_usdh || '0');
+    const accruedYield = parseFloat(balance.accrued_yield_usdh || '0');
+    const yieldInfo = this.calculateYieldFromTimestamp(
+      principal,
+      balance.last_yield_calculation
+    );
+
+    // Calculate total deposited and withdrawn from settlements and withdrawals
+    const depositsResult = await db.query(
+      `SELECT COALESCE(SUM(net_amount_usdh), 0) as total_deposited
+       FROM settlements
+       WHERE agent_id = $1 AND deposited_to_vault = true AND status = 'completed'`,
+      [balance.agent_id]
+    );
+
+    const withdrawalsResult = await db.query(
+      `SELECT COALESCE(SUM(amount_usdh), 0) as total_withdrawn
+       FROM withdrawals
+       WHERE agent_id = $1 AND status = 'completed'`,
+      [balance.agent_id]
+    );
+
+    const totalDeposited = parseFloat(depositsResult.rows[0]?.total_deposited || '0');
+    const totalWithdrawn = parseFloat(withdrawalsResult.rows[0]?.total_withdrawn || '0');
+    const totalBalance = principal + yieldInfo.accruedYield;
+
+    return {
+      balance: totalBalance.toFixed(6),
+      totalDeposited: totalDeposited.toFixed(6),
+      totalWithdrawn: totalWithdrawn.toFixed(6),
+      yieldEarned: (accruedYield + yieldInfo.accruedYield).toFixed(6),
+      lastYieldClaim: balance.last_yield_calculation || undefined,
+    };
+  }
+
+  /**
+   * Get withdrawal history for an agent
+   */
+  async getWithdrawalHistory(
+    agentId: string,
+    options: {
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) {
+    const { limit = 50, offset = 0 } = options;
+
+    // First, get the agent's database ID
+    const agentResult = await db.query(
+      'SELECT id FROM agents WHERE agent_id = $1',
+      [agentId]
+    );
+
+    if (agentResult.rows.length === 0) {
+      const err: AppError = new Error('Agent not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const agentDbId = agentResult.rows[0].id;
+
+    const result = await db.query(
+      `SELECT 
+        id,
+        amount_usdh,
+        principal_amount,
+        yield_amount,
+        tx_hash,
+        status,
+        requested_at,
+        completed_at
+      FROM withdrawals
+      WHERE agent_id = $1
+      ORDER BY requested_at DESC
+      LIMIT $2 OFFSET $3`,
+      [agentDbId, limit, offset]
+    );
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      amount: row.amount_usdh.toString(),
+      principalAmount: row.principal_amount?.toString() || '0',
+      yieldAmount: row.yield_amount?.toString() || '0',
+      txHash: row.tx_hash,
+      status: row.status,
+      requestedAt: row.requested_at,
+      completedAt: row.completed_at,
+    }));
+  }
+
+  /**
    * Calculate accrued yield based on timestamp
    */
   private calculateYieldFromTimestamp(
@@ -513,28 +622,6 @@ export class AgentService {
   }
 
   /**
-   * Get withdrawal history
-   */
-  async getWithdrawalHistory(agentId: string, limit: number = 20): Promise<any[]> {
-    const agent = await this.getAgent(agentId);
-    if (!agent) {
-      const err: AppError = new Error('Agent not found');
-      err.statusCode = 404;
-      throw err;
-    }
-
-    const result = await db.query(
-      `SELECT * FROM withdrawals 
-       WHERE agent_id = $1 
-       ORDER BY created_at DESC 
-       LIMIT $2`,
-      [agent.id, limit]
-    );
-
-    return result.rows;
-  }
-
-  /**
    * Get withdrawal by ID
    */
   async getWithdrawal(withdrawalId: string): Promise<any> {
@@ -564,6 +651,20 @@ export class AgentService {
     settlementPreference?: string;
     enabledChains?: string[];
   }): Promise<any> {
+    return this.updateAgent(agentId, settings);
+  }
+
+  /**
+   * Update agent (enhanced version supporting name, description, etc.)
+   */
+  async updateAgent(agentId: string, updates: {
+    name?: string;
+    description?: string;
+    minPaymentAmount?: string;
+    autoWithdraw?: boolean;
+    settlementPreference?: string;
+    enabledChains?: string[];
+  }): Promise<any> {
     const agent = await this.getAgent(agentId);
     if (!agent) {
       const err: AppError = new Error('Agent not found');
@@ -571,36 +672,50 @@ export class AgentService {
       throw err;
     }
 
-    const updates: string[] = [];
+    const dbUpdates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
-    if (settings.minPaymentAmount !== undefined) {
-      updates.push(`min_payment_amount = $${paramIndex++}`);
-      values.push(settings.minPaymentAmount);
+    // Handle metadata updates (name, description)
+    let metadata = agent.metadata || {};
+    if (updates.name !== undefined || updates.description !== undefined) {
+      if (updates.name !== undefined) {
+        metadata = { ...metadata, name: updates.name };
+      }
+      if (updates.description !== undefined) {
+        metadata = { ...metadata, description: updates.description };
+      }
+      dbUpdates.push(`metadata = $${paramIndex++}`);
+      values.push(JSON.stringify(metadata));
     }
 
-    if (settings.autoWithdraw !== undefined) {
-      updates.push(`auto_withdraw = $${paramIndex++}`);
-      values.push(settings.autoWithdraw);
+    if (updates.minPaymentAmount !== undefined) {
+      dbUpdates.push(`min_payment_amount = $${paramIndex++}`);
+      values.push(updates.minPaymentAmount);
     }
 
-    if (settings.settlementPreference !== undefined) {
-      updates.push(`settlement_preference = $${paramIndex++}`);
-      values.push(settings.settlementPreference);
+    if (updates.autoWithdraw !== undefined) {
+      dbUpdates.push(`auto_withdraw = $${paramIndex++}`);
+      values.push(updates.autoWithdraw);
     }
 
-    if (settings.enabledChains !== undefined) {
-      updates.push(`enabled_chains = $${paramIndex++}`);
-      values.push(JSON.stringify(settings.enabledChains));
+    if (updates.settlementPreference !== undefined) {
+      dbUpdates.push(`settlement_preference = $${paramIndex++}`);
+      values.push(updates.settlementPreference);
+    }
+
+    if (updates.enabledChains !== undefined) {
+      dbUpdates.push(`enabled_chains = $${paramIndex++}`);
+      values.push(JSON.stringify(updates.enabledChains));
 
       // Generate new payment addresses for new chains
-      const existingChains = new Set(agent.enabled_chains);
-      const newChains = settings.enabledChains.filter((c: string) => !existingChains.has(c));
+      const existingChains = new Set(agent.enabled_chains || []);
+      const newChains = updates.enabledChains.filter((c: string) => !existingChains.has(c));
 
       if (newChains.length > 0) {
+        const agentIndex = agent.agent_index || 0;
         const newAddresses = this.hdWalletManager.deriveAllAddresses(
-          agent.agent_index,
+          agentIndex,
           newChains as Chain[],
           agent.stacks_address
         );
@@ -616,19 +731,113 @@ export class AgentService {
       }
     }
 
-    if (updates.length === 0) {
+    if (dbUpdates.length === 0) {
       return agent;
     }
 
-    updates.push(`updated_at = NOW()`);
+    dbUpdates.push(`updated_at = NOW()`);
     values.push(agent.id);
 
     await db.query(
-      `UPDATE agents SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+      `UPDATE agents SET ${dbUpdates.join(', ')} WHERE id = $${paramIndex}`,
       values
     );
 
     return this.getAgent(agentId);
+  }
+
+  /**
+   * Get payment intents for an agent
+   */
+  async getAgentPayments(
+    agentId: string,
+    options: {
+      status?: string;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) {
+    const { status, limit = 50, offset = 0 } = options;
+
+    // First, get the agent's database ID
+    const agentResult = await db.query(
+      'SELECT id FROM agents WHERE agent_id = $1',
+      [agentId]
+    );
+
+    if (agentResult.rows.length === 0) {
+      const err: AppError = new Error('Agent not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const agentDbId = agentResult.rows[0].id;
+
+    // Build query with optional status filter
+    let query = `
+      SELECT 
+        pi.id,
+        pi.intent_id,
+        pi.agent_id,
+        pi.source_chain,
+        pi.source_token,
+        pi.source_token_address,
+        pi.amount,
+        pi.amount_usd,
+        pi.destination_token,
+        pi.status,
+        pi.payment_address,
+        pi.quote_id,
+        pi.route_id,
+        pi.created_at,
+        pi.expires_at,
+        pi.completed_at,
+        pi.metadata,
+        pe.tx_hash as payment_tx_hash,
+        pe.block_number as payment_block_number,
+        pe.confirmed as payment_confirmed
+      FROM payment_intents pi
+      LEFT JOIN payment_events pe ON pi.id = pe.payment_intent_id
+      WHERE pi.agent_id = $1
+    `;
+
+    const params: any[] = [agentDbId];
+    let paramIndex = 2;
+
+    if (status) {
+      query += ` AND pi.status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY pi.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const result = await db.query(query, params);
+
+    // Format results to match PaymentIntent type
+    return result.rows.map((row) => ({
+      id: row.id,
+      intentId: row.intent_id,
+      agentId: agentId,
+      sourceChain: row.source_chain,
+      sourceToken: row.source_token,
+      sourceTokenAddress: row.source_token_address,
+      amount: row.amount.toString(),
+      amountUSD: parseFloat(row.amount_usd),
+      destinationToken: row.destination_token || 'USDh',
+      status: row.status,
+      paymentAddress: row.payment_address,
+      quoteId: row.quote_id,
+      routeId: row.route_id,
+      createdAt: row.created_at,
+      expiresAt: row.expires_at,
+      completedAt: row.completed_at,
+      metadata: row.metadata || {},
+      paymentTxHash: row.payment_tx_hash,
+      paymentBlockNumber: row.payment_block_number ? parseInt(row.payment_block_number) : undefined,
+      paymentConfirmed: row.payment_confirmed || false,
+    }));
   }
 }
 
