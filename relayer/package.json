@@ -1,0 +1,31 @@
+{
+  "name": "payment-relayer",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Cross-chain payment relayer: Sepolia ETH → Stacks USDh",
+  "main": "src/payment-relayer.js",
+  "scripts": {
+    "start": "node src/payment-relayer.js",
+    "test": "node src/test-relayer.js",
+    "test-chainlink": "node src/test-chainlink.js",
+    "setup": "node scripts/setup-relayer.js",
+    "deploy": "hardhat run scripts/deploy.js --network sepolia"
+  },
+  "dependencies": {
+    "@stacks/transactions": "^6.13.0",
+    "@stacks/network": "^6.13.0",
+    "@stacks/wallet-sdk": "^7.2.0",
+    "ethers": "^6.13.0",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": [
+    "stacks",
+    "ethereum",
+    "cross-chain",
+    "bridge",
+    "relayer"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+
