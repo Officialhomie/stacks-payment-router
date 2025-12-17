@@ -80,7 +80,7 @@ echo ""
 
 # 4. Check wallet balance
 echo -e "${BLUE}4. Checking wallet balance...${NC}"
-BALANCE_RESPONSE=$(curl -s "https://api.testnet.hiro.so/v2/accounts/$DEPLOYMENT_ADDRESS" 2>/dev/null)
+BALANCE_RESPONSE=$(curl -s "https://api.testnet.hiro.so/extended/v1/address/$DEPLOYMENT_ADDRESS/stx" 2>/dev/null)
 
 if [ -n "$BALANCE_RESPONSE" ]; then
     BALANCE=$(echo "$BALANCE_RESPONSE" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('balance', '0'))" 2>/dev/null)
