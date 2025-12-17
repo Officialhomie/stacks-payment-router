@@ -26,3 +26,5 @@ docs/
 *.md
 !README.md
 !contracts/clarity/README.md
+.cursor/
+.next/
