@@ -10,6 +10,7 @@ import { agentRoutes } from './routes/agents';
 import { paymentRoutes } from './routes/payments';
 import { quoteRoutes } from './routes/quotes';
 import { webhookRoutes } from './routes/webhooks';
+import { adminRoutes } from './routes/admin';
 
 dotenv.config();
 
@@ -42,6 +43,7 @@ app.use('/api/v1/agents', agentRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/quotes', quoteRoutes);
 app.use('/api/v1/webhooks', webhookRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // Error handling
 app.use(errorHandler);
