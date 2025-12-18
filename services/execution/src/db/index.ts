@@ -1,8 +1,18 @@
 import { Pool } from 'pg';
 import { logger } from '@shared/utils/logger';
+import dotenv from 'dotenv';
+
+// Load environment variables if not already loaded
+dotenv.config();
+
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  logger.warn('DATABASE_URL not set in execution service, database operations will fail');
+}
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
