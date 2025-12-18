@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { connectWallet, disconnectWallet, getUserAddress, isUserSignedIn, getUserData } from '@/lib/stacks/wallet';
-import type { WalletState } from '@/types';
+import type { WalletState, Network } from '@/types';
 
 interface WalletContextValue extends WalletState {
   connect: () => void;
@@ -35,7 +35,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setState({
           connected: true,
           address: address || undefined,
-          network: process.env.NEXT_PUBLIC_NETWORK as any || 'testnet',
+          network: (process.env.NEXT_PUBLIC_NETWORK as Network) || 'testnet',
           balance: undefined, // Will be fetched separately
         });
       }
@@ -50,11 +50,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     connectWallet(
       (userData) => {
         console.log('Wallet connected:', userData);
-        const address = userData.profile?.stxAddress?.testnet || userData.profile?.stxAddress?.mainnet;
+        const userDataTyped = userData as { profile?: { stxAddress?: { testnet?: string; mainnet?: string } } };
+        const address = userDataTyped.profile?.stxAddress?.testnet || userDataTyped.profile?.stxAddress?.mainnet;
         setState({
           connected: true,
           address,
-          network: process.env.NEXT_PUBLIC_NETWORK as any || 'testnet',
+          network: (process.env.NEXT_PUBLIC_NETWORK as Network) || 'testnet',
           balance: undefined,
         });
         setIsConnecting(false);
