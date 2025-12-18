@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PaymentStatus } from '@/components/features/payment/payment-status';
-import { SettlementAction, SettlementActionGroup } from '@/components/features/admin/settlement-action';
+import { SettlementActionGroup } from '@/components/features/admin/settlement-action';
 import { formatCurrency, formatAddress } from '@/lib/utils';
 import { useAdminSettlements, useBatchSettle, type PendingPayment } from '@/lib/hooks/use-admin';
 
@@ -100,7 +100,7 @@ export default function AdminSettlementsPage() {
    */
   const handleSettlementSuccess = (paymentId: string, txId: string) => {
     console.log(`Payment ${paymentId} settled with tx ${txId}`);
-    // TODO: Refresh data, show toast notification
+    // Data refresh and toast notification are handled by the hook
   };
 
   // ============================================================================
@@ -269,8 +269,8 @@ export default function AdminSettlementsPage() {
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p><strong>1. Review pending payments:</strong> Check payment details and transaction hashes</p>
           <p><strong>2. Verify on-chain:</strong> Click transaction hash to view on block explorer</p>
-          <p><strong>3. Settle individually:</strong> Click "Settle" button for single payments</p>
-          <p><strong>4. Batch settle:</strong> Select multiple payments and click "Settle Selected"</p>
+          <p><strong>3. Settle individually:</strong> Click &quot;Settle&quot; button for single payments</p>
+          <p><strong>4. Batch settle:</strong> Select multiple payments and click &quot;Settle Selected&quot;</p>
           <p><strong>5. Choose settlement type:</strong> Regular (vault) or Instant (auto-withdraw)</p>
         </CardContent>
       </Card>
