@@ -85,7 +85,7 @@ const defaultPreferences: NotificationPreferences = {
 };
 
 export function NotificationSettings({
-  agentAddress,
+  agentAddress: _agentAddress,
   initialPreferences = {},
   onSave,
   enableEmail = true,
@@ -126,11 +126,9 @@ export function NotificationSettings({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // TODO: Replace with actual API call
-      // await apiClient.updateNotificationPreferences(agentAddress, preferences);
-
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Notification preferences API endpoint not yet implemented
+      // This will call the backend when the endpoint is available
+      throw new Error('Notification preferences API endpoint not yet implemented');
 
       onSave?.(preferences);
       setSaved(true);
@@ -267,7 +265,7 @@ export function NotificationSettings({
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <p className="text-xs text-muted-foreground">
-                  We'll send POST requests with payment event data in JSON format
+                  We&apos;ll send POST requests with payment event data in JSON format
                 </p>
               </div>
             )}
