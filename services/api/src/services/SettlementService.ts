@@ -106,7 +106,7 @@ export class SettlementService {
    * Settle a single payment
    * TODO: This should call the Stacks contract to complete settlement
    */
-  private async settlePayment(intentId: string, autoWithdraw: boolean): Promise<string> {
+  async settlePayment(intentId: string, autoWithdraw: boolean): Promise<string> {
     // Get payment intent
     const intentResult = await db.query(
       'SELECT * FROM payment_intents WHERE intent_id = $1',
