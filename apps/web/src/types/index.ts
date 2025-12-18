@@ -21,7 +21,7 @@ export interface PaymentIntent {
   createdAt: Date;
   expiresAt: Date;
   settledAt?: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -100,13 +100,13 @@ export interface Transaction {
 /**
  * API Response wrapper
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
   meta?: {
     timestamp: number;
@@ -187,7 +187,19 @@ export interface ActivityLog {
   amount?: string;
   txHash?: string;
   timestamp: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Withdrawal record
+ */
+export interface Withdrawal {
+  id: string;
+  amount: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  txHash?: string;
+  requestedAt?: Date | string;
+  completedAt?: Date | string;
 }
 
 /**
@@ -196,7 +208,7 @@ export interface ActivityLog {
 export interface WebhookEvent {
   id: string;
   type: string;
-  data: any;
+  data: unknown;
   timestamp: Date;
   signature: string;
 }
