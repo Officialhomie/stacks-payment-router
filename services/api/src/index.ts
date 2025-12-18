@@ -1,8 +1,11 @@
+// Load environment variables FIRST before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 import { errorHandler } from './middleware/errorHandler';
 import { securityHeaders, requestLogger } from './middleware/security';
 import { logger } from '@shared/utils/logger';
@@ -11,8 +14,6 @@ import { paymentRoutes } from './routes/payments';
 import { quoteRoutes } from './routes/quotes';
 import { webhookRoutes } from './routes/webhooks';
 import { adminRoutes } from './routes/admin';
-
-dotenv.config();
 
 const app: express.Application = express();
 const PORT = process.env.API_PORT || 3000;
