@@ -1,4 +1,5 @@
-import type { ApiResponse, PaymentIntent, Agent, Settlement, VaultStats, PaymentStats } from '@/types';
+import type { ApiResponse, PaymentIntent, Agent, Settlement, VaultStats, PaymentStats, Withdrawal } from '@/types';
+import type { PendingPayment } from './hooks/use-admin';
 
 /**
  * API Client Configuration
@@ -51,7 +52,7 @@ class ApiClient {
   /**
    * Generic POST request
    */
-  private async post<T>(path: string, data?: any): Promise<ApiResponse<T>> {
+  private async post<T>(path: string, data?: unknown): Promise<ApiResponse<T>> {
     try {
       const response = await fetchWithTimeout(`${this.baseUrl}${path}`, {
         method: 'POST',
@@ -69,7 +70,7 @@ class ApiClient {
   /**
    * Generic PUT request
    */
-  private async put<T>(path: string, data?: any): Promise<ApiResponse<T>> {
+  private async put<T>(path: string, data?: unknown): Promise<ApiResponse<T>> {
     try {
       const response = await fetchWithTimeout(`${this.baseUrl}${path}`, {
         method: 'PUT',
@@ -101,14 +102,15 @@ class ApiClient {
   /**
    * Error handler
    */
-  private handleError(error: any): ApiResponse<never> {
+  private handleError(error: unknown): ApiResponse<never> {
+    const err = error as Error;
     console.error('API Error:', error);
     return {
       success: false,
       error: {
         code: 'API_ERROR',
-        message: error.message || 'An unexpected error occurred',
-        details: error,
+        message: err.message || 'An unexpected error occurred',
+        details: err,
       },
     };
   }
@@ -124,7 +126,7 @@ class ApiClient {
     agentAddress: string;
     amount: string;
     chain: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }): Promise<ApiResponse<PaymentIntent>> {
     return this.post<PaymentIntent>('/api/v1/payments/intent', data);
   }
@@ -151,7 +153,11 @@ class ApiClient {
     limit?: number;
     offset?: number;
   }): Promise<ApiResponse<PaymentIntent[]>> {
-    const query = new URLSearchParams(params as any).toString();
+    const queryParams: Record<string, string> = {};
+    if (params?.status) queryParams.status = params.status;
+    if (params?.limit) queryParams.limit = params.limit.toString();
+    if (params?.offset) queryParams.offset = params.offset.toString();
+    const query = new URLSearchParams(queryParams).toString();
     return this.get<PaymentIntent[]>(`/api/v1/agents/${agentAddress}/payments?${query}`);
   }
 
@@ -204,7 +210,10 @@ class ApiClient {
     limit?: number;
     offset?: number;
   }): Promise<ApiResponse<Settlement[]>> {
-    const query = new URLSearchParams(params as any).toString();
+    const queryParams: Record<string, string> = {};
+    if (params?.limit) queryParams.limit = params.limit.toString();
+    if (params?.offset) queryParams.offset = params.offset.toString();
+    const query = new URLSearchParams(queryParams).toString();
     return this.get<Settlement[]>(`/api/agents/${agentAddress}/settlements?${query}`);
   }
 
@@ -212,7 +221,7 @@ class ApiClient {
    * Request settlement (admin only)
    */
   async requestSettlement(intentId: string, autoWithdraw: boolean = false): Promise<ApiResponse<{ txId: string }>> {
-    return this.post<{ txId: string }>(`/api/settlements/${intentId}`, { autoWithdraw });
+    return this.post<{ txId: string }>(`/api/v1/admin/settlements/${intentId}`, { autoWithdraw });
   }
 
   // ============================================
@@ -222,15 +231,15 @@ class ApiClient {
   /**
    * Get pending settlements (admin only)
    */
-  async getPendingSettlements(): Promise<ApiResponse<any[]>> {
-    return this.get<any[]>(`/api/v1/admin/settlements/pending`);
+  async getPendingSettlements(): Promise<ApiResponse<PendingPayment[]>> {
+    return this.get<PendingPayment[]>(`/api/v1/admin/settlements/pending`);
   }
 
   /**
    * Batch settle payments (admin only)
    */
-  async batchSettle(intentIds: string[], autoWithdraw: boolean = false): Promise<ApiResponse<any[]>> {
-    return this.post<any[]>(`/api/v1/admin/settlements/batch`, { intentIds, autoWithdraw });
+  async batchSettle(intentIds: string[], autoWithdraw: boolean = false): Promise<ApiResponse<Array<{ intentId: string; success: boolean; txId?: string; error?: string }>>> {
+    return this.post<Array<{ intentId: string; success: boolean; txId?: string; error?: string }>>(`/api/v1/admin/settlements/batch`, { intentIds, autoWithdraw });
   }
 
   // ============================================
@@ -250,9 +259,12 @@ class ApiClient {
   async getWithdrawalHistory(agentAddress: string, params?: {
     limit?: number;
     offset?: number;
-  }): Promise<ApiResponse<any[]>> {
-    const query = new URLSearchParams(params as any).toString();
-    return this.get<any[]>(`/api/v1/agents/${agentAddress}/withdrawals?${query}`);
+  }): Promise<ApiResponse<Withdrawal[]>> {
+    const queryParams: Record<string, string> = {};
+    if (params?.limit) queryParams.limit = params.limit.toString();
+    if (params?.offset) queryParams.offset = params.offset.toString();
+    const query = new URLSearchParams(queryParams).toString();
+    return this.get<Withdrawal[]>(`/api/v1/agents/${agentAddress}/withdrawals?${query}`);
   }
 
   /**
