@@ -41,6 +41,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useSettlement } from '@/lib/hooks/use-settlement';
 
 // ============================================================================
 // TypeScript Interfaces
@@ -110,8 +111,8 @@ export function SettlementAction({
   asChild = false,
   disabled = false,
 }: SettlementActionProps) {
-  const [isSettling, setIsSettling] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const settlementMutation = useSettlement();
 
   /**
    * Handle settlement action
@@ -124,20 +125,17 @@ export function SettlementAction({
    */
   const handleSettle = async () => {
     try {
-      setIsSettling(true);
       setStatus('idle');
 
-      // TODO: Replace with actual API call
-      // const response = await apiClient.requestSettlement(intentId, autoWithdraw);
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const mockTxId = `0x${Math.random().toString(16).substring(2, 66)}`;
+      const result = await settlementMutation.mutateAsync({
+        intentId,
+        autoWithdraw,
+      });
 
       setStatus('success');
 
       if (onSuccess) {
-        onSuccess(mockTxId);
+        onSuccess(result.txId);
       }
 
       // Reset status after 2 seconds
@@ -151,8 +149,6 @@ export function SettlementAction({
 
       // Reset status after 3 seconds
       setTimeout(() => setStatus('idle'), 3000);
-    } finally {
-      setIsSettling(false);
     }
   };
 
@@ -182,11 +178,11 @@ export function SettlementAction({
       variant={variant}
       size={size}
       onClick={handleSettle}
-      disabled={disabled || isSettling}
+      disabled={disabled || settlementMutation.isPending}
       className={cn('gap-2', className)}
       asChild={asChild}
     >
-      {isSettling ? (
+      {settlementMutation.isPending ? (
         <>
           <SpinnerIcon className="h-4 w-4 animate-spin" />
           Settling...
