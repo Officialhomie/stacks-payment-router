@@ -1,6 +1,5 @@
 import { AppConfig, UserSession, showConnect } from '@stacks/connect';
-import { StacksMainnet, StacksTestnet } from '@stacks/network';
-import { NETWORK, stacksConfig } from './config';
+import { NETWORK } from './config';
 
 /**
  * App configuration for Stacks Connect
@@ -16,7 +15,7 @@ export const userSession = new UserSession({ appConfig });
  * Connect to Stacks wallet
  */
 export function connectWallet(
-  onFinish: (userData: any) => void,
+  onFinish: (userData: unknown) => void,
   onCancel?: () => void
 ): void {
   showConnect({
