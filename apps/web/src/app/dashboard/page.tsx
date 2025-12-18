@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency, formatCompactNumber } from '@/lib/utils';
 import { PaymentStatus } from '@/components/features/payment/payment-status';
+import { RegistrationForm } from '@/components/features/agent/registration-form';
 
 /**
  * Dashboard Overview Page
@@ -45,7 +46,7 @@ export default function DashboardPage() {
             Connect your Stacks wallet to view your agent dashboard
           </p>
           <p className="text-sm text-muted-foreground">
-            Click the "Connect Wallet" button in the top right corner
+            Click the &quot;Connect Wallet&quot; button in the top right corner
           </p>
         </Card>
       </div>
@@ -75,16 +76,15 @@ export default function DashboardPage() {
   if (!agent) {
     return (
       <div className="max-w-4xl mx-auto">
-        <Card className="p-12 text-center">
-          <div className="text-6xl mb-4">👋</div>
-          <h2 className="text-2xl font-bold mb-2">Welcome!</h2>
-          <p className="text-muted-foreground mb-6">
-            You're not registered as an agent yet. Register to start receiving payments.
-          </p>
-          <button className="px-6 py-2 bg-primary text-primary-foreground rounded-md font-medium hover:bg-primary/90 transition-colors">
-            Register as Agent
-          </button>
-        </Card>
+        <RegistrationForm
+          onSuccess={() => {
+            // Refetch agent data
+            window.location.reload();
+          }}
+          onError={(error) => {
+            console.error('Registration failed:', error);
+          }}
+        />
       </div>
     );
   }
@@ -95,7 +95,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back! Here's an overview of your payment activity.
+          Welcome back! Here&apos;s an overview of your payment activity.
         </p>
       </div>
 
