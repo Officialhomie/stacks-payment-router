@@ -35,7 +35,7 @@ export function QRCode({
   includeMargin = true,
   fgColor = '#000000',
   bgColor = '#ffffff',
-  imageSettings,
+  imageSettings: _imageSettings,
   onDownload,
   className,
   showDownload = true,
