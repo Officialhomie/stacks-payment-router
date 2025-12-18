@@ -103,16 +103,12 @@ export function AgentProfile({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // TODO: Replace with actual API call
-      // await apiClient.updateAgentProfile(agentAddress, profileData);
-
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      onSave?.(profileData);
+      // Call the onSave callback which handles the API call
+      await onSave?.(profileData);
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to save profile:', error);
+      throw error; // Re-throw to let parent handle
     } finally {
       setIsSaving(false);
     }
