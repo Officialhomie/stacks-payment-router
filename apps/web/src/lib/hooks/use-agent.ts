@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api-client';
-import type { Agent, VaultStats } from '@/types';
+import type { Agent } from '@/types';
+import { toast } from 'sonner';
 
 /**
  * Hook to fetch agent details
@@ -46,6 +47,10 @@ export function useRegisterAgent() {
     onSuccess: (data) => {
       // Cache the newly registered agent
       queryClient.setQueryData(['agent', data.address], data);
+      toast.success('Agent registered successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to register agent');
     },
   });
 }
@@ -69,6 +74,10 @@ export function useUpdateAgent(address: string) {
       queryClient.setQueryData(['agent', address], data);
       // Invalidate related queries
       queryClient.invalidateQueries({ queryKey: ['agent', address] });
+      toast.success('Agent settings updated successfully!');
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update agent');
     },
   });
 }
@@ -136,11 +145,15 @@ export function useWithdrawFromVault(agentAddress: string) {
       }
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Invalidate vault stats to refresh balance
       queryClient.invalidateQueries({ queryKey: ['vault-stats', agentAddress] });
       queryClient.invalidateQueries({ queryKey: ['agent', agentAddress] });
       queryClient.invalidateQueries({ queryKey: ['withdrawal-history', agentAddress] });
+      toast.success(`Withdrawal initiated! Transaction: ${data.txId.substring(0, 10)}...`);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Withdrawal failed');
     },
   });
 }
