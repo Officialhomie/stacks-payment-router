@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api-client';
-import type { PaymentIntent } from '@/types';
 
 /**
  * Hook to fetch a single payment intent
@@ -36,7 +35,7 @@ export function useCreatePaymentIntent() {
       agentAddress: string;
       amount: string;
       chain: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     }) => {
       const response = await apiClient.createPaymentIntent(data);
       if (!response.success || !response.data) {
