@@ -3,6 +3,7 @@
 import React from 'react';
 import { QueryProvider } from './query-provider';
 import { WalletProvider } from './wallet-provider';
+import { ToastProvider } from './toast-provider';
 
 /**
  * Root Providers Component
@@ -11,7 +12,10 @@ import { WalletProvider } from './wallet-provider';
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryProvider>
-      <WalletProvider>{children}</WalletProvider>
+      <WalletProvider>
+        <ToastProvider />
+        {children}
+      </WalletProvider>
     </QueryProvider>
   );
 }
