@@ -28,6 +28,27 @@ export class AdminController {
     }
   }
 
+  async settlePayment(req: Request, res: Response) {
+    try {
+      const { intentId } = req.params;
+      const { autoWithdraw } = req.body;
+
+      const txHash = await this.settlementService.settlePayment(intentId, autoWithdraw || false);
+
+      res.json({
+        success: true,
+        data: { txId: txHash },
+      });
+    } catch (error) {
+      logger.error('Settlement failed', error);
+      const err: AppError = error as AppError;
+      res.status(err.statusCode || 500).json({
+        success: false,
+        error: err.message || 'Settlement failed',
+      });
+    }
+  }
+
   async batchSettle(req: Request, res: Response) {
     try {
       const { intentIds, autoWithdraw } = req.body;
