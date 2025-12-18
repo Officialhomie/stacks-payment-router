@@ -73,7 +73,17 @@ export function VaultStats({
   }
 
   if (compact) {
-    return <VaultStats.Compact stats={stats} className={className} />;
+    return (
+      <VaultStats.Compact
+        stats={{
+          balance: stats.balance,
+          totalEarnings: stats.yieldEarned,
+          currentApy: '5.0', // Default APY - will be fetched from contract when available
+          pendingDeposits: '0.00', // Will be calculated from pending settlements when available
+        }}
+        className={className}
+      />
+    );
   }
 
   return (
@@ -116,15 +126,15 @@ export function VaultStats({
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalEarnings)}</div>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(stats.yieldEarned)}</div>
             <p className="text-xs text-muted-foreground">Lifetime yield earned</p>
           </CardContent>
         </Card>
 
-        {/* Current APY */}
+        {/* Total Deposited */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current APY</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Deposited</CardTitle>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -133,19 +143,19 @@ export function VaultStats({
               strokeWidth="2"
               className="h-4 w-4 text-muted-foreground"
             >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.currentApy}%</div>
-            <p className="text-xs text-muted-foreground">Annual percentage yield</p>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalDeposited)}</div>
+            <p className="text-xs text-muted-foreground">All-time deposits</p>
           </CardContent>
         </Card>
 
-        {/* Pending Deposits */}
+        {/* Total Withdrawn */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Deposits</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Withdrawn</CardTitle>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -159,13 +169,13 @@ export function VaultStats({
             </svg>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.pendingDeposits)}</div>
-            <p className="text-xs text-muted-foreground">Awaiting settlement</p>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalWithdrawn)}</div>
+            <p className="text-xs text-muted-foreground">All-time withdrawals</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Earnings Chart (TODO: Implement with recharts or similar) */}
+      {/* Earnings Chart */}
       {showChart && (
         <Card className="mt-6">
           <CardHeader>
@@ -174,7 +184,7 @@ export function VaultStats({
           </CardHeader>
           <CardContent>
             <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              Chart component (to be implemented with recharts)
+              Earnings chart will be available in a future update
             </div>
           </CardContent>
         </Card>
