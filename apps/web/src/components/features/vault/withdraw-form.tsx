@@ -43,6 +43,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
+import { useWithdrawFromVault } from '@/lib/hooks/use-agent';
 
 /**
  * Props for the WithdrawForm component
@@ -90,8 +91,8 @@ export function WithdrawForm({
 }: WithdrawFormProps) {
   // State management
   const [internalAmount, setInternalAmount] = useState('');
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const withdrawMutation = useWithdrawFromVault(agentAddress);
 
   // Use controlled or uncontrolled mode
   const amount = controlledAmount !== undefined ? controlledAmount : internalAmount;
@@ -105,7 +106,7 @@ export function WithdrawForm({
 
   // Validation
   const isValidAmount = numericAmount >= numericMin && numericAmount <= numericMax && numericAmount <= numericBalance;
-  const canWithdraw = isValidAmount && numericAmount > 0 && !isWithdrawing;
+  const canWithdraw = isValidAmount && numericAmount > 0 && !withdrawMutation.isPending;
 
   /**
    * Calculate withdrawal fee (0.5% default)
@@ -156,29 +157,17 @@ export function WithdrawForm({
       return;
     }
 
-    setIsWithdrawing(true);
     setError(null);
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await apiClient.withdrawFromVault({
-      //   agentAddress,
-      //   amount: amount,
-      // });
-
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      const mockTxId = `0x${Math.random().toString(16).substring(2, 66)}`;
-
+      const result = await withdrawMutation.mutateAsync(amount);
       // Success
-      onSuccess?.(mockTxId);
+      onSuccess?.(result.txId);
       setAmount('');
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Withdrawal failed');
       setError(error.message);
       onError?.(error);
-    } finally {
-      setIsWithdrawing(false);
     }
   };
 
@@ -213,7 +202,7 @@ export function WithdrawForm({
                 placeholder="0.00"
                 value={amount}
                 onChange={handleAmountChange}
-                disabled={isWithdrawing}
+                disabled={withdrawMutation.isPending}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
               />
               <Button
@@ -221,7 +210,7 @@ export function WithdrawForm({
                 variant="ghost"
                 size="sm"
                 onClick={handleMaxClick}
-                disabled={isWithdrawing}
+                disabled={withdrawMutation.isPending}
                 className="absolute right-2 top-1/2 -translate-y-1/2"
               >
                 Max
@@ -256,7 +245,7 @@ export function WithdrawForm({
 
           {/* Withdraw Button */}
           <Button type="submit" disabled={!canWithdraw} className="w-full">
-            {isWithdrawing ? 'Processing...' : buttonText}
+            {withdrawMutation.isPending ? 'Processing...' : buttonText}
           </Button>
 
           {/* Help Text */}
