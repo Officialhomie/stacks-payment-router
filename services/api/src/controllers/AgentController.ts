@@ -27,10 +27,23 @@ export class AgentController {
     } catch (error) {
       logger.error('Agent registration failed', error);
       const err: AppError = error as AppError;
-      res.status(err.statusCode || 400).json({
+      const errorMessage = err.message || (error instanceof Error ? error.message : 'Registration failed');
+      const statusCode = err.statusCode || 400;
+      
+      // In development, include more details
+      const errorResponse: any = {
         success: false,
-        error: err.message || 'Registration failed',
-      });
+        error: errorMessage,
+      };
+      
+      if (process.env.NODE_ENV === 'development') {
+        errorResponse.details = {
+          code: err.code,
+          stack: error instanceof Error ? error.stack : undefined,
+        };
+      }
+      
+      res.status(statusCode).json(errorResponse);
     }
   }
 
