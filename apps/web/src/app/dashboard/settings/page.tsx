@@ -5,7 +5,6 @@
  * - Profile information
  * - Notification preferences
  * - Settlement defaults
- * - API keys and integrations
  *
  * @route /dashboard/settings
  */
@@ -18,64 +17,55 @@ import { Button } from '@/components/ui/button';
 import { AgentProfile } from '@/components/features/settings/agent-profile';
 import { NotificationSettings } from '@/components/features/settings/notification-settings';
 import { useWallet } from '@/components/providers/wallet-provider';
+import { useAgent, useUpdateAgent } from '@/lib/hooks/use-agent';
 import { formatAddress } from '@/lib/utils';
+import type { Agent } from '@/types';
 
 /**
  * Settings tab type
  */
 type SettingsTab = 'profile' | 'notifications' | 'api' | 'security';
 
-/**
- * Mock agent data
- * TODO: Replace with actual API call
- */
-const mockAgentData = {
-  name: 'My AI Agent',
-  description: 'An intelligent payment processing agent',
-  website: 'https://my-agent.com',
-  apiEndpoint: 'https://api.my-agent.com',
-  defaultAutoWithdraw: false,
-  registeredAt: '2024-01-01T00:00:00Z',
-};
-
 export default function SettingsPage() {
   const { connected, address } = useWallet();
+  const { data: agent, isLoading: agentLoading } = useAgent(address || null, {
+    enabled: connected && !!address,
+  });
+  const updateAgentMutation = useUpdateAgent(address || '');
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
-  const [apiKey, setApiKey] = useState('sk_test_1234567890abcdef');
-  const [showApiKey, setShowApiKey] = useState(false);
 
   /**
    * Handle profile save
    */
-  const handleProfileSave = (data: any) => {
-    console.log('Profile saved:', data);
-    // TODO: Show success notification
+  const handleProfileSave = async (data: { name: string; description: string; defaultAutoWithdraw: boolean }) => {
+    try {
+      await updateAgentMutation.mutateAsync({
+        name: data.name,
+        description: data.description,
+        autoWithdraw: data.defaultAutoWithdraw,
+      } as Partial<Agent>);
+      // Success handled by mutation
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+    }
   };
 
   /**
    * Handle notification preferences save
    */
-  const handleNotificationsSave = (preferences: any) => {
-    console.log('Notifications saved:', preferences);
-    // TODO: Show success notification
-  };
-
-  /**
-   * Generate new API key
-   */
-  const handleGenerateApiKey = async () => {
-    // TODO: Implement API key generation
-    const newKey = `sk_test_${Math.random().toString(36).substring(2, 18)}`;
-    setApiKey(newKey);
-    setShowApiKey(true);
-  };
-
-  /**
-   * Revoke API key
-   */
-  const handleRevokeApiKey = async () => {
-    // TODO: Implement API key revocation
-    console.log('API key revoked');
+  const handleNotificationsSave = async (_preferences: {
+    paymentDetected: boolean;
+    paymentSettled: boolean;
+    vaultDeposit: boolean;
+    vaultWithdrawal: boolean;
+    systemAlerts: boolean;
+    emailEnabled: boolean;
+    webhookUrl?: string;
+    webhookEnabled: boolean;
+  }) => {
+    // Notification preferences require backend API endpoint
+    // This will be implemented when the backend endpoint is available
+    throw new Error('Notification preferences API endpoint not yet implemented');
   };
 
   // Check wallet connection
@@ -91,6 +81,33 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  // Loading state
+  if (agentLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle>Loading...</CardTitle>
+            <CardDescription>Fetching agent settings</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Prepare agent data for components
+  const agentProfileData = agent
+    ? {
+        name: agent.name || '',
+        description: agent.description || '',
+        website: '',
+        apiEndpoint: '',
+        defaultAutoWithdraw: agent.autoWithdraw || false,
+        address: agent.address || address || '',
+        registeredAt: agent.registeredAt?.toString() || new Date().toISOString(),
+      }
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -161,15 +178,25 @@ export default function SettingsPage() {
       {/* Tab Content */}
       <div>
         {/* Profile Tab */}
-        {activeTab === 'profile' && (
+        {activeTab === 'profile' && agentProfileData && (
           <div className="space-y-6">
             <AgentProfile
               agentAddress={address}
-              initialData={mockAgentData}
+              initialData={agentProfileData}
               editable
               onSave={handleProfileSave}
             />
-            <AgentProfile.Stats totalPayments={42} totalVolume="4200.00" averagePayment="100.00" />
+            {agent && (
+              <AgentProfile.Stats
+                totalPayments={agent.paymentCount || 0}
+                totalVolume={parseFloat(agent.totalReceived || '0').toFixed(2)}
+                averagePayment={
+                  (agent.paymentCount || 0) > 0
+                    ? (parseFloat(agent.totalReceived || '0') / (agent.paymentCount || 1)).toFixed(2)
+                    : '0.00'
+                }
+              />
+            )}
           </div>
         )}
 
@@ -186,55 +213,17 @@ export default function SettingsPage() {
         {/* API Keys Tab */}
         {activeTab === 'api' && (
           <div className="space-y-6">
-            {/* API Key Management */}
             <Card>
               <CardHeader>
                 <CardTitle>API Keys</CardTitle>
                 <CardDescription>
-                  Use API keys to integrate with the Payment Router programmatically
+                  API key management will be available soon
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Current API Key */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Your API Key</label>
-                  <div className="flex gap-2">
-                    <input
-                      type={showApiKey ? 'text' : 'password'}
-                      value={apiKey}
-                      readOnly
-                      className="flex-1 px-3 py-2 border rounded-md bg-muted font-mono text-sm"
-                    />
-                    <Button variant="outline" onClick={() => setShowApiKey(!showApiKey)}>
-                      {showApiKey ? 'Hide' : 'Show'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigator.clipboard.writeText(apiKey)}
-                    >
-                      Copy
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Keep your API key secret. Do not share it publicly.
-                  </p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <Button onClick={handleGenerateApiKey}>Generate New Key</Button>
-                  <Button variant="destructive" onClick={handleRevokeApiKey}>
-                    Revoke Key
-                  </Button>
-                </div>
-
-                {/* Warning */}
-                <div className="rounded-lg bg-destructive/10 text-destructive px-4 py-3 text-sm">
-                  <p className="font-medium">⚠️ Warning</p>
-                  <p className="mt-1">
-                    Generating a new API key will invalidate the current key. Update your
-                    integrations immediately.
-                  </p>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>API key management is not yet implemented.</p>
+                  <p className="text-sm mt-2">This feature will be available in a future update.</p>
                 </div>
               </CardContent>
             </Card>
@@ -250,8 +239,8 @@ export default function SettingsPage() {
                   <p className="text-sm font-medium">Authentication</p>
                   <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto">
                     {`curl https://api.payment-router.com/v1/intents \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json"`}
+  -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \\
+  -H &quot;Content-Type: application/json&quot;`}
                   </pre>
                 </div>
 
@@ -259,12 +248,12 @@ export default function SettingsPage() {
                   <p className="text-sm font-medium">Create Payment Intent</p>
                   <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto">
                     {`curl -X POST https://api.payment-router.com/v1/intents \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
-  -H "Content-Type: application/json" \\
+  -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \\
+  -H &quot;Content-Type: application/json&quot; \\
   -d '{
-    "amount": "100.00",
-    "chain": "ethereum",
-    "agentAddress": "${formatAddress(address, 6)}"
+    &quot;amount&quot;: &quot;100.00&quot;,
+    &quot;chain&quot;: &quot;ethereum&quot;,
+    &quot;agentAddress&quot;: &quot;${formatAddress(address, 6)}&quot;
   }'`}
                   </pre>
                 </div>
@@ -276,131 +265,21 @@ export default function SettingsPage() {
                 </Button>
               </CardContent>
             </Card>
-
-            {/* Rate Limits */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Rate Limits</CardTitle>
-                <CardDescription>Your current API usage limits</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">Requests per minute</p>
-                      <p className="text-sm text-muted-foreground">Current usage</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold">42 / 100</p>
-                      <p className="text-xs text-muted-foreground">42% used</p>
-                    </div>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div className="bg-primary h-2 rounded-full" style={{ width: '42%' }} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
 
         {/* Security Tab */}
         {activeTab === 'security' && (
           <div className="space-y-6">
-            {/* Two-Factor Authentication */}
             <Card>
               <CardHeader>
-                <CardTitle>Two-Factor Authentication</CardTitle>
-                <CardDescription>Add an extra layer of security to your account</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium">2FA Status</p>
-                    <p className="text-sm text-muted-foreground">
-                      Two-factor authentication is not enabled
-                    </p>
-                  </div>
-                  <Button>Enable 2FA</Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Session Management */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Active Sessions</CardTitle>
-                <CardDescription>Manage your active sessions across devices</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {/* Current Session */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Current Session</p>
-                      <p className="text-sm text-muted-foreground">
-                        MacBook Pro • San Francisco, CA • Active now
-                      </p>
-                    </div>
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                      Active
-                    </span>
-                  </div>
-
-                  {/* Other Sessions */}
-                  <div className="flex items-center justify-between p-3 border rounded-lg">
-                    <div>
-                      <p className="font-medium">iPad</p>
-                      <p className="text-sm text-muted-foreground">
-                        Last active: 2 hours ago
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="sm">
-                      Revoke
-                    </Button>
-                  </div>
-                </div>
-
-                <Button variant="destructive" className="w-full">
-                  Revoke All Sessions
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Audit Log */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Audit Log</CardTitle>
-                <CardDescription>Recent security-related activity</CardDescription>
+                <CardTitle>Security Settings</CardTitle>
+                <CardDescription>Security features will be available soon</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {[
-                    {
-                      action: 'Wallet Connected',
-                      timestamp: '2024-01-10T14:30:00Z',
-                      ip: '192.168.1.1',
-                    },
-                    {
-                      action: 'API Key Generated',
-                      timestamp: '2024-01-09T10:15:00Z',
-                      ip: '192.168.1.1',
-                    },
-                    {
-                      action: 'Settings Updated',
-                      timestamp: '2024-01-08T16:45:00Z',
-                      ip: '192.168.1.1',
-                    },
-                  ].map((log, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b last:border-0">
-                      <div>
-                        <p className="font-medium text-sm">{log.action}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(log.timestamp).toLocaleString()} • {log.ip}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Security settings including 2FA, session management, and audit logs</p>
+                  <p className="text-sm mt-2">will be available in a future update.</p>
                 </div>
               </CardContent>
             </Card>
