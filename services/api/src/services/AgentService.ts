@@ -230,12 +230,26 @@ export class AgentService {
    * Get vault statistics for an agent
    */
   async getVaultStats(agentId: string) {
+    // First get the agent's database ID
+    const agentResult = await db.query(
+      'SELECT id FROM agents WHERE agent_id = $1',
+      [agentId]
+    );
+
+    if (agentResult.rows.length === 0) {
+      const err: AppError = new Error('Agent not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const agentDbId = agentResult.rows[0].id;
+    
     const result = await db.query(
       `SELECT ab.*, a.agent_id
        FROM agent_balances ab
        JOIN agents a ON ab.agent_id = a.id
-       WHERE a.agent_id = $1`,
-      [agentId]
+       WHERE ab.agent_id = $1`,
+      [agentDbId]
     );
 
     if (result.rows.length === 0) {
