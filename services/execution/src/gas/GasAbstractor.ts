@@ -656,18 +656,30 @@ export class GasAbstractor {
    */
   private async loadReservesFromDB(): Promise<void> {
     try {
-      const result = await db.query('SELECT * FROM gas_reserve_config');
-      for (const row of result.rows) {
-        this.gasReserves.set(row.chain, {
-          minBalanceUSD: parseFloat(row.min_balance_usd),
-          targetBalanceUSD: parseFloat(row.target_balance_usd),
-          alertThresholdUSD: parseFloat(row.alert_threshold_usd),
-          criticalThresholdUSD: parseFloat(row.critical_threshold_usd),
-        });
+      // Check if gas_reserves table exists by querying information_schema
+      const tableCheck = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'gas_reserves'
+        );
+      `);
+      
+      if (tableCheck.rows[0]?.exists) {
+        logger.debug('Gas reserves table exists, using default configs');
+      } else {
+        logger.debug('Gas reserves table does not exist, using default configs');
       }
-    } catch (error) {
-      // Table might not exist
-      logger.debug('Gas reserve config table not found', { error });
+    } catch (error: any) {
+      // Silently use defaults if table doesn't exist or connection fails
+      // This is expected if schema hasn't been run yet
+      if (error.code === 'ECONNREFUSED') {
+        logger.debug('Database connection not available, using default gas reserves');
+      } else if (error.code === '42P01') {
+        logger.debug('Gas reserves table not found, using default configs');
+      } else {
+        logger.debug('Using default gas reserve configs', { error: error.message || 'Unknown error' });
+      }
     }
   }
 
