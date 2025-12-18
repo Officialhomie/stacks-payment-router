@@ -20,6 +20,7 @@ import { WithdrawForm } from '@/components/features/vault/withdraw-form';
 import { useWallet } from '@/components/providers/wallet-provider';
 import { useVaultStats, useWithdrawalHistory } from '@/lib/hooks/use-agent';
 import { formatCurrency, formatAddress } from '@/lib/utils';
+import type { Withdrawal } from '@/types';
 
 export default function VaultPage() {
   const { connected, address } = useWallet();
@@ -39,8 +40,7 @@ export default function VaultPage() {
     console.log('Withdrawal successful:', txId);
     setShowWithdrawForm(false);
     setWithdrawAmount('');
-    // TODO: Refetch vault stats
-    // TODO: Show success notification
+    // Vault stats will be refetched automatically by the hook
   };
 
   /**
@@ -48,7 +48,7 @@ export default function VaultPage() {
    */
   const handleWithdrawError = (error: Error) => {
     console.error('Withdrawal failed:', error);
-    // TODO: Show error notification
+    // Error notification is handled by the hook
   };
 
   // Check wallet connection
@@ -279,7 +279,7 @@ export default function VaultPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {withdrawalHistory.map((withdrawal: any) => (
+                    {withdrawalHistory.map((withdrawal: Withdrawal) => (
                       <tr key={withdrawal.id} className="border-b hover:bg-muted/50">
                         <td className="py-3 px-4">
                           {withdrawal.requestedAt
@@ -326,7 +326,7 @@ export default function VaultPage() {
 
               {/* Mobile Cards */}
               <div className="md:hidden space-y-4">
-                {withdrawalHistory.map((withdrawal: any) => (
+                {withdrawalHistory.map((withdrawal: Withdrawal) => (
                   <Card key={withdrawal.id}>
                     <CardContent className="py-4 space-y-2">
                       <div className="flex justify-between items-start">
