@@ -72,7 +72,7 @@ export function WalletConnectDropdown({
 }: {
   className?: string;
 }) {
-  const { connected, address, network, connect, disconnect, isConnecting } = useWallet();
+  const { connected, address, network } = useWallet();
 
   if (!connected) {
     return <WalletConnectButton className={className} />;
