@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api-client';
+import { toast } from 'sonner';
 
 export interface PendingPayment {
   intentId: string;
@@ -53,9 +54,19 @@ export function useBatchSettle() {
       }
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       // Invalidate pending settlements query
       queryClient.invalidateQueries({ queryKey: ['admin', 'settlements', 'pending'] });
+      const successCount = results.filter((r: { success: boolean }) => r.success).length;
+      const failCount = results.length - successCount;
+      if (failCount === 0) {
+        toast.success(`Successfully settled ${successCount} payment(s)`);
+      } else {
+        toast.warning(`Settled ${successCount} payment(s), ${failCount} failed`);
+      }
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Batch settlement failed');
     },
   });
 }
