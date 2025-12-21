@@ -22,6 +22,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Overview', href: '/dashboard', icon: HomeIcon },
     { name: 'Payments', href: '/dashboard/payments', icon: PaymentsIcon },
     { name: 'Vault', href: '/dashboard/vault', icon: VaultIcon },
+    { name: 'Monitoring', href: '/dashboard/monitoring', icon: MonitoringIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: SettingsIcon },
   ];
 
@@ -173,6 +174,27 @@ function VaultIcon({ className }: { className?: string }) {
     >
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function MonitoringIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 3v18h18" />
+      <path d="M18 7l-5-5-5 5" />
+      <path d="M7 21l5-5 5 5" />
+      <circle cx="7" cy="7" r="1" />
+      <circle cx="17" cy="17" r="1" />
     </svg>
   );
 }
