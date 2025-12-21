@@ -256,3 +256,68 @@ export interface FeeConfig {
   minimumFee: string;
   maximumFee: string;
 }
+
+/**
+ * Metrics Types for Chainhooks Monitoring
+ */
+export interface UserMetrics {
+  agentAddress: string;
+  totalPayments: number;
+  totalVolumeUSD: number;
+  totalFeesGenerated: number;
+  firstPaymentAt: Date | string;
+  lastPaymentAt: Date | string;
+  sourceChains: Record<Chain, number>;
+  updatedAt: Date | string;
+}
+
+export interface FeeMetrics {
+  intentId: string;
+  agentAddress: string;
+  settlementFee: number;
+  settlementFeeBps: number;
+  gasSpentUSD: number;
+  totalFeesUSD: number;
+  sourceChain: Chain;
+  sourceAmount: string;
+  usdhAmount: string;
+  timestamp: Date | string;
+}
+
+export interface ProtocolMetrics {
+  totalUsers: number;
+  totalPayments: number;
+  totalVolumeUSD: number;
+  totalFeesCollected: number;
+  averageFeePerPayment: number;
+  paymentsByChain: Record<Chain, number>;
+  volumeByChain: Record<Chain, number>;
+  lastUpdated: Date | string;
+}
+
+export interface MetricsSummary {
+  protocol: ProtocolMetrics;
+  topUsers: Array<{
+    address: string;
+    volume: number;
+    payments: number;
+    fees: number;
+  }>;
+  recentFees: Array<{
+    intentId: string;
+    agent: string;
+    fee: number;
+    chain: Chain;
+    timestamp: Date | string;
+  }>;
+  summary: {
+    totalUsers: number;
+    totalPayments: number;
+    totalVolume: number;
+    totalFees: number;
+    averageFee: number;
+    filteredTotalFees?: number;
+    filteredTotalVolume?: number;
+    filteredPaymentCount?: number;
+  };
+}
