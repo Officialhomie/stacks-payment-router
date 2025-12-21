@@ -152,3 +152,59 @@ export interface ChainEvent {
   confirmations: number;
 }
 
+// Chainhook-specific types for tracking users and fees
+export interface UserMetrics {
+  agentAddress: string;
+  totalPayments: number;
+  totalVolumeUSD: number;
+  totalFeesGenerated: number;
+  firstPaymentAt: Date;
+  lastPaymentAt: Date;
+  sourceChains: Record<Chain, number>; // payments per chain
+  updatedAt: Date;
+}
+
+export interface FeeMetrics {
+  intentId: string;
+  agentAddress: string;
+  settlementFee: number; // in USDh
+  settlementFeeBps: number;
+  gasSpentUSD: number;
+  totalFeesUSD: number;
+  sourceChain: Chain;
+  sourceAmount: string;
+  usdhAmount: string;
+  timestamp: Date;
+}
+
+export interface ProtocolMetrics {
+  totalUsers: number;
+  totalPayments: number;
+  totalVolumeUSD: number;
+  totalFeesCollected: number;
+  averageFeePerPayment: number;
+  paymentsByChain: Record<Chain, number>;
+  volumeByChain: Record<Chain, number>;
+  lastUpdated: Date;
+}
+
+export interface ChainhookEvent {
+  event: string;
+  intentId?: string;
+  paymentIndex?: number;
+  agent?: string;
+  sourceChain?: string;
+  sourceAmount?: string;
+  expectedUsdh?: string;
+  usdhAmount?: string;
+  netAmount?: string;
+  feesPaid?: string;
+  expiresAt?: number;
+  detectedAt?: number;
+  settledAt?: number;
+  sourceTxHash?: string;
+  settlementTxHash?: string;
+  blockHeight?: number;
+  [key: string]: any;
+}
+
