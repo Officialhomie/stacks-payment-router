@@ -1,10 +1,11 @@
-import type { ApiResponse, PaymentIntent, Agent, Settlement, VaultStats, PaymentStats, Withdrawal } from '@/types';
+import type { ApiResponse, PaymentIntent, Agent, Settlement, VaultStats, PaymentStats, Withdrawal, UserMetrics, FeeMetrics, ProtocolMetrics, MetricsSummary } from '@/types';
 import type { PendingPayment } from './hooks/use-admin';
 
 /**
  * API Client Configuration
  */
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const METRICS_API_BASE_URL = process.env.NEXT_PUBLIC_METRICS_API_URL || 'http://localhost:3101';
 const API_TIMEOUT = 30000; // 30 seconds
 
 /**
@@ -295,6 +296,146 @@ class ApiClient {
    */
   async healthCheck(): Promise<ApiResponse<{ status: string; timestamp: string }>> {
     return this.get<{ status: string; timestamp: string }>('/health');
+  }
+
+  // Metrics API (Chainhooks)
+  // ============================================
+
+  /**
+   * Get protocol-wide metrics
+   */
+  async getProtocolMetrics(): Promise<ApiResponse<ProtocolMetrics>> {
+    try {
+      const response = await fetchWithTimeout(`${METRICS_API_BASE_URL}/metrics/protocol`);
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Get all user metrics with optional filtering
+   */
+  async getUserMetrics(params?: {
+    minVolume?: number;
+    minPayments?: number;
+    sortBy?: 'volume' | 'payments' | 'fees' | 'lastPayment';
+    sortOrder?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<{ count: number; page: number; limit: number; totalPages: number; users: UserMetrics[] }>> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.minVolume) queryParams.set('minVolume', params.minVolume.toString());
+      if (params?.minPayments) queryParams.set('minPayments', params.minPayments.toString());
+      if (params?.sortBy) queryParams.set('sortBy', params.sortBy);
+      if (params?.sortOrder) queryParams.set('sortOrder', params.sortOrder);
+      if (params?.page) queryParams.set('page', params.page.toString());
+      if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+      const url = `${METRICS_API_BASE_URL}/metrics/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await fetchWithTimeout(url);
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Get metrics for a specific user
+   */
+  async getUserMetric(agentAddress: string): Promise<ApiResponse<UserMetrics>> {
+    try {
+      const response = await fetchWithTimeout(`${METRICS_API_BASE_URL}/metrics/user/${agentAddress}`);
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Get all fee metrics with optional filtering
+   */
+  async getFeeMetrics(params?: {
+    agent?: string;
+    chain?: string;
+    fromDate?: string;
+    toDate?: string;
+    minFee?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<{ count: number; page: number; limit: number; totalPages: number; fees: FeeMetrics[] }>> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.agent) queryParams.set('agent', params.agent);
+      if (params?.chain) queryParams.set('chain', params.chain);
+      if (params?.fromDate) queryParams.set('fromDate', params.fromDate);
+      if (params?.toDate) queryParams.set('toDate', params.toDate);
+      if (params?.minFee) queryParams.set('minFee', params.minFee.toString());
+      if (params?.page) queryParams.set('page', params.page.toString());
+      if (params?.limit) queryParams.set('limit', params.limit.toString());
+
+      const url = `${METRICS_API_BASE_URL}/metrics/fees${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await fetchWithTimeout(url);
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Get fee metrics for a specific intent
+   */
+  async getFeeMetric(intentId: string): Promise<ApiResponse<FeeMetrics>> {
+    try {
+      const response = await fetchWithTimeout(`${METRICS_API_BASE_URL}/metrics/fee/${intentId}`);
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Get metrics summary
+   */
+  async getMetricsSummary(params?: {
+    fromDate?: string;
+    toDate?: string;
+    topUsers?: number;
+    recentFees?: number;
+  }): Promise<ApiResponse<MetricsSummary>> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.fromDate) queryParams.set('fromDate', params.fromDate);
+      if (params?.toDate) queryParams.set('toDate', params.toDate);
+      if (params?.topUsers) queryParams.set('topUsers', params.topUsers.toString());
+      if (params?.recentFees) queryParams.set('recentFees', params.recentFees.toString());
+
+      const url = `${METRICS_API_BASE_URL}/metrics/summary${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await fetchWithTimeout(url);
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  /**
+   * Check metrics API health
+   */
+  async metricsHealthCheck(): Promise<ApiResponse<{ status: string; service: string; timestamp: string }>> {
+    try {
+      const response = await fetchWithTimeout(`${METRICS_API_BASE_URL}/health`);
+      const data = await response.json();
+      return { success: true, data };
+    } catch (error) {
+      return this.handleError(error);
+    }
   }
 }
 
